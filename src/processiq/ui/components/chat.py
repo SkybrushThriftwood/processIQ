@@ -1,0 +1,810 @@
+"""Chat component for ProcessIQ UI.
+
+Handles conversation display, message rendering, and user input.
+Uses Streamlit's native chat components with custom styling.
+"""
+
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+import pandas as pd
+import streamlit as st
+
+from processiq.models import AnalysisInsight, AnalysisResult, ProcessData, ProcessStep
+from processiq.ui.state import set_process_data
+from processiq.ui.styles import (
+    COLORS,
+    confidence_badge,
+    get_severity_color,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class MessageRole(str, Enum):
+    """Who sent the message."""
+
+    USER = "user"
+    AGENT = "assistant"  # Streamlit uses "assistant" not "agent"
+    SYSTEM = "system"
+
+
+class MessageType(str, Enum):
+    """Type of message content."""
+
+    TEXT = "text"
+    FILE = "file"
+    DATA_CARD = "data_card"
+    ANALYSIS = "analysis"
+    CLARIFICATION = "clarification"
+    STATUS = "status"
+    ERROR = "error"
+
+
+@dataclass
+class ChatMessage:
+    """A single message in the conversation."""
+
+    role: MessageRole
+    type: MessageType
+    content: str
+    timestamp: datetime = field(default_factory=datetime.now)
+
+    # Optional structured data
+    data: Any = None  # ProcessData, AnalysisResult, etc.
+    analysis_insight: AnalysisInsight | None = None  # New LLM-based insight (preferred)
+    file_name: str | None = None
+    questions: list[dict] | None = None
+    is_editable: bool = False
+    confidence: float | None = None
+    improvement_suggestions: str | None = None  # LLM suggestions for improving input
+    suggested_questions: list[str] | None = None  # Targeted follow-up suggestions
+    draft_insight: AnalysisInsight | None = None  # Draft analysis preview
+
+
+def create_user_message(content: str) -> ChatMessage:
+    """Create a user text message."""
+    return ChatMessage(
+        role=MessageRole.USER,
+        type=MessageType.TEXT,
+        content=content,
+    )
+
+
+def create_agent_message(content: str) -> ChatMessage:
+    """Create an agent text message."""
+    return ChatMessage(
+        role=MessageRole.AGENT,
+        type=MessageType.TEXT,
+        content=content,
+    )
+
+
+def create_file_message(file_name: str) -> ChatMessage:
+    """Create a file upload notification message."""
+    return ChatMessage(
+        role=MessageRole.USER,
+        type=MessageType.FILE,
+        content=f"Uploaded: {file_name}",
+        file_name=file_name,
+    )
+
+
+def create_status_message(content: str) -> ChatMessage:
+    """Create a status update message."""
+    return ChatMessage(
+        role=MessageRole.SYSTEM,
+        type=MessageType.STATUS,
+        content=content,
+    )
+
+
+def create_error_message(content: str) -> ChatMessage:
+    """Create an error message."""
+    return ChatMessage(
+        role=MessageRole.SYSTEM,
+        type=MessageType.ERROR,
+        content=content,
+    )
+
+
+def create_data_card_message(
+    process_data: ProcessData,
+    content: str = "Review the extracted process data:",
+    is_editable: bool = True,
+    confidence: float | None = None,
+    improvement_suggestions: str | None = None,
+    suggested_questions: list[str] | None = None,
+    draft_insight: "AnalysisInsight | None" = None,
+) -> ChatMessage:
+    """Create a data card message for process review."""
+    return ChatMessage(
+        role=MessageRole.AGENT,
+        type=MessageType.DATA_CARD,
+        content=content,
+        data=process_data,
+        is_editable=is_editable,
+        confidence=confidence,
+        improvement_suggestions=improvement_suggestions,
+        suggested_questions=suggested_questions,
+        draft_insight=draft_insight,
+    )
+
+
+def create_analysis_message(
+    analysis_result: AnalysisResult | None = None,
+    analysis_insight: AnalysisInsight | None = None,
+    content: str = "Analysis complete.",
+) -> ChatMessage:
+    """Create an analysis results message.
+
+    Args:
+        analysis_result: Legacy algorithm-based analysis result.
+        analysis_insight: New LLM-based analysis insight (preferred).
+        content: Summary message to display.
+    """
+    return ChatMessage(
+        role=MessageRole.AGENT,
+        type=MessageType.ANALYSIS,
+        content=content,
+        data=analysis_result,
+        analysis_insight=analysis_insight,
+    )
+
+
+def create_clarification_message(
+    content: str,
+    questions: list[dict],
+) -> ChatMessage:
+    """Create a clarification request message."""
+    return ChatMessage(
+        role=MessageRole.AGENT,
+        type=MessageType.CLARIFICATION,
+        content=content,
+        questions=questions,
+    )
+
+
+def _render_text_message(message: ChatMessage) -> None:
+    """Render a plain text message."""
+    st.markdown(message.content)
+
+
+def _render_file_message(message: ChatMessage) -> None:
+    """Render a file upload notification."""
+    st.markdown(
+        f"""
+        <div style="
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: {COLORS['background_alt']};
+            border: 1px solid {COLORS['border']};
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        ">
+            <span style="color: {COLORS['text_muted']};">File:</span>
+            <span style="font-weight: 500;">{message.file_name}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_status_message(message: ChatMessage) -> None:
+    """Render a status update."""
+    st.markdown(
+        f"""
+        <div style="
+            color: {COLORS['text_muted']};
+            font-size: 0.875rem;
+            font-style: italic;
+            padding: 0.25rem 0;
+        ">
+            {message.content}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_error_message(message: ChatMessage) -> None:
+    """Render an error message."""
+    st.error(message.content)
+
+
+def _render_data_card(message: ChatMessage) -> None:
+    """Render a process data card for review/editing."""
+    st.markdown(message.content)
+
+    if message.confidence is not None:
+        confidence_badge(message.confidence, "Data Completeness")
+        st.markdown("")  # Spacing
+
+    # Show improvement suggestions if available (LLM-generated guidance)
+    if message.improvement_suggestions:
+        st.markdown(
+            f"""
+            <div style="
+                padding: 0.75rem 1rem;
+                background: {COLORS['background_alt']};
+                border-left: 3px solid {COLORS['primary']};
+                border-radius: 0 0.375rem 0.375rem 0;
+                margin-bottom: 1rem;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            ">
+                <div style="
+                    font-weight: 500;
+                    color: {COLORS['primary']};
+                    margin-bottom: 0.25rem;
+                    font-size: 0.8rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.025em;
+                ">What would help</div>
+                <div style="color: {COLORS['text']};">
+                    {message.improvement_suggestions}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    process_data: ProcessData | None = message.data
+    if not process_data:
+        st.warning("No process data available.")
+        return
+
+    # Build table data with numeric values
+    rows = []
+    has_estimates = False
+    estimated_info: dict[str, list[str]] = {}
+
+    for step in process_data.steps:
+        estimated = set(getattr(step, "estimated_fields", []))
+
+        if estimated:
+            has_estimates = True
+            labels = []
+            if "average_time_hours" in estimated:
+                labels.append("time")
+            if "cost_per_instance" in estimated:
+                labels.append("cost")
+            if "error_rate_pct" in estimated:
+                labels.append("problem freq.")
+            if "resources_needed" in estimated:
+                labels.append("resources")
+            if labels:
+                estimated_info[step.step_name] = labels
+
+        rows.append(
+            {
+                "Step": step.step_name,
+                "Time (hrs)": step.average_time_hours or 0.0,
+                "Cost ($)": step.cost_per_instance or 0.0,
+                "Problem Freq.": step.error_rate_pct or 0.0,
+                "Resources": step.resources_needed or 0,
+                "Depends On": ", ".join(step.depends_on) if step.depends_on else "",
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    is_editable = message.is_editable
+
+    edited_df = st.data_editor(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        disabled=not is_editable,
+        key=f"data_card_{message.timestamp.timestamp()}",
+        column_config={
+            "Step": st.column_config.TextColumn(
+                "Step",
+                help="Process step name",
+                width="medium",
+            ),
+            "Time (hrs)": st.column_config.NumberColumn(
+                "Time (hrs)",
+                help="Average time per execution in hours",
+                min_value=0.0,
+                format="%.2f",
+            ),
+            "Cost ($)": st.column_config.NumberColumn(
+                "Cost ($)",
+                help="Total cost per execution — labor, computing, materials, etc.",
+                min_value=0.0,
+                format="$%.2f",
+            ),
+            "Problem Freq.": st.column_config.NumberColumn(
+                "Problem Freq.",
+                help="How often this step needs rework or causes delays (0-100%)",
+                min_value=0.0,
+                max_value=100.0,
+                format="%.1f%%",
+            ),
+            "Resources": st.column_config.NumberColumn(
+                "Resources",
+                help="Number of people or systems involved",
+                min_value=0,
+                step=1,
+            ),
+            "Depends On": st.column_config.TextColumn(
+                "Depends On",
+                help="Steps that must complete before this one (comma-separated)",
+                width="medium",
+            ),
+        },
+    )
+
+    # Handle edits — update process data in session state
+    if is_editable and not df.equals(edited_df):
+        _apply_table_edits(process_data, edited_df, message)
+
+    if is_editable:
+        st.caption(
+            "You can edit values directly in the table, or describe changes in the chat."
+        )
+
+    # Show estimated values legend
+    if has_estimates and estimated_info:
+        est_parts = [
+            f"<strong>{name}</strong>: {', '.join(fields)}"
+            for name, fields in estimated_info.items()
+        ]
+        st.markdown(
+            f"""
+            <div style="
+                font-size: 0.8rem;
+                color: {COLORS['text_muted']};
+                margin-top: 0.5rem;
+                padding: 0.5rem 0.75rem;
+                background: {COLORS['warning']}10;
+                border-left: 2px solid {COLORS['warning']};
+                border-radius: 0 0.25rem 0.25rem 0;
+            ">
+                <strong>AI-estimated values:</strong> {'; '.join(est_parts)}.
+                Review and adjust as needed.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Show totals (use message.data which may have been updated by edits)
+    current_data: ProcessData = message.data
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Time", f"{current_data.total_time_hours:.1f} hours")
+    with col2:
+        st.metric("Total Cost", f"${current_data.total_cost:.2f}")
+
+    # Show draft analysis preview (Task 3.3)
+    if message.draft_insight:
+        _render_draft_analysis(message.draft_insight)
+
+    # Show targeted follow-up suggestions (skip first "Does this look correct?")
+    extra_questions = (message.suggested_questions or [])[1:]
+    if extra_questions:
+        st.markdown(
+            f"""<div style="
+                font-size: 0.8rem;
+                color: {COLORS['text_muted']};
+                margin-top: 0.75rem;
+                margin-bottom: 0.5rem;
+            ">You could also tell me:</div>""",
+            unsafe_allow_html=True,
+        )
+        chips_html = "".join(
+            f"""<span style="
+                display: inline-block;
+                padding: 0.375rem 0.75rem;
+                background: {COLORS['background_alt']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 1rem;
+                font-size: 0.8rem;
+                margin: 0.25rem 0.25rem 0.25rem 0;
+                color: {COLORS['text']};
+            ">{q}</span>"""
+            for q in extra_questions
+        )
+        st.markdown(chips_html, unsafe_allow_html=True)
+
+
+def _apply_table_edits(
+    original: ProcessData,
+    edited_df: "pd.DataFrame",
+    message: ChatMessage,
+) -> None:
+    """Apply table edits to process data and update session state."""
+    try:
+        new_steps = []
+        for _, row in edited_df.iterrows():
+            step_name = str(row["Step"]).strip()
+            if not step_name:
+                continue
+
+            depends_on_str = str(row.get("Depends On", "") or "")
+            depends_on = [s.strip() for s in depends_on_str.split(",") if s.strip()]
+
+            # Find original step to preserve estimated_fields
+            orig_step = next(
+                (s for s in original.steps if s.step_name == step_name), None
+            )
+
+            time_val = row.get("Time (hrs)", 0)
+            cost_val = row.get("Cost ($)", 0)
+            error_val = row.get("Problem Freq.", 0)
+            resources_val = row.get("Resources", 0)
+
+            new_steps.append(
+                ProcessStep(
+                    step_name=step_name,
+                    average_time_hours=0.0 if pd.isna(time_val) else float(time_val),
+                    cost_per_instance=0.0 if pd.isna(cost_val) else float(cost_val),
+                    error_rate_pct=0.0 if pd.isna(error_val) else float(error_val),
+                    resources_needed=0
+                    if pd.isna(resources_val)
+                    else int(resources_val),
+                    depends_on=depends_on,
+                    estimated_fields=getattr(orig_step, "estimated_fields", [])
+                    if orig_step
+                    else [],
+                )
+            )
+
+        if new_steps:
+            updated = ProcessData(
+                name=original.name,
+                description=original.description,
+                steps=new_steps,
+            )
+            set_process_data(updated)
+            message.data = updated  # Update message for correct totals
+            logger.debug(
+                "Process data updated via table edit (%d steps)", len(new_steps)
+            )
+    except Exception as e:
+        logger.warning("Failed to apply table edits: %s", e)
+
+
+def _render_draft_analysis(insight: AnalysisInsight) -> None:
+    """Render a collapsible draft analysis preview below the data card.
+
+    Gives users immediate value by showing what analysis would look like
+    with current data. Labeled clearly as a draft.
+    """
+    st.markdown("")  # Spacing
+
+    with st.expander("Draft Analysis (based on current data)", expanded=False):
+        st.markdown(
+            f"""<div style="
+                padding: 0.5rem 0;
+                font-size: 0.85rem;
+                color: {COLORS['text_muted']};
+                border-bottom: 1px solid {COLORS['border']};
+                margin-bottom: 0.75rem;
+            ">This is a preview based on available data. Refine the data above for better results.</div>""",
+            unsafe_allow_html=True,
+        )
+
+        # Process summary
+        if insight.process_summary:
+            st.markdown(insight.process_summary)
+
+        # Issues (compact)
+        if insight.issues:
+            st.markdown(f"**Issues found ({len(insight.issues)}):**")
+            for issue in insight.issues:
+                severity_color = get_severity_color(issue.severity)
+                desc_preview = issue.description[:150]
+                if len(issue.description) > 150:
+                    desc_preview += "..."
+                st.markdown(
+                    f"""<div style="
+                        border-left: 3px solid {severity_color};
+                        padding: 0.5rem 0.75rem;
+                        margin-bottom: 0.5rem;
+                        background: {COLORS['background_alt']};
+                        border-radius: 0 0.25rem 0.25rem 0;
+                        font-size: 0.9rem;
+                    ">
+                        <strong>{issue.title}</strong>
+                        <span style="
+                            font-size: 0.75rem;
+                            color: {severity_color};
+                            margin-left: 0.5rem;
+                        ">{issue.severity}</span>
+                        <br/><span style="color: {COLORS['text_muted']};">{desc_preview}</span>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+
+        # Recommendations (compact)
+        if insight.recommendations:
+            st.markdown(f"**Recommendations ({len(insight.recommendations)}):**")
+            for rec in insight.recommendations:
+                st.markdown(f"- **{rec.title}** -- {rec.expected_benefit}")
+
+        # Not-problems (one line each)
+        if insight.not_problems:
+            st.markdown("**Core value (not issues):**")
+            for np_item in insight.not_problems:
+                st.markdown(f"- {np_item.step_name}: {np_item.why_not_a_problem}")
+
+        # Caveats
+        if insight.confidence_notes:
+            st.caption(insight.confidence_notes)
+
+
+def _render_analysis_results(message: ChatMessage) -> None:
+    """Render analysis results."""
+    st.markdown(message.content)
+
+    result: AnalysisResult | None = message.data
+    if not result:
+        st.warning("No analysis results available.")
+        return
+
+    # Executive summary
+    if result.summary:
+        st.markdown(f"**Summary:** {result.summary}")
+        st.markdown("")
+
+    # Bottlenecks
+    if result.bottlenecks:
+        st.markdown("#### Bottlenecks Identified")
+        for bottleneck in result.bottlenecks:
+            color = get_severity_color(bottleneck.severity.value)
+            with st.container():
+                st.markdown(
+                    f"""
+                    <div style="
+                        border-left: 3px solid {color};
+                        padding: 0.75rem 1rem;
+                        margin-bottom: 0.75rem;
+                        background: {COLORS['background_alt']};
+                        border-radius: 0 0.375rem 0.375rem 0;
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>{bottleneck.step_name}</strong>
+                            <span style="
+                                padding: 0.125rem 0.5rem;
+                                background: {color}15;
+                                color: {color};
+                                border-radius: 0.25rem;
+                                font-size: 0.75rem;
+                                text-transform: uppercase;
+                            ">{bottleneck.severity.value}</span>
+                        </div>
+                        <div style="color: {COLORS['text_muted']}; font-size: 0.875rem; margin-top: 0.25rem;">
+                            {bottleneck.reason}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+    # Suggestions
+    if result.suggestions:
+        st.markdown("#### Recommendations")
+        for i, suggestion in enumerate(result.suggestions, 1):
+            with st.expander(f"{i}. {suggestion.title}", expanded=(i == 1)):
+                st.markdown(suggestion.description)
+
+                if suggestion.roi:
+                    roi = suggestion.roi
+                    st.markdown("**ROI Estimate:**")
+                    cols = st.columns(3)
+                    with cols[0]:
+                        st.metric(
+                            "Expected Savings", f"${roi.expected_value:,.0f}/year"
+                        )
+                    with cols[1]:
+                        st.metric(
+                            "Implementation Cost", f"${suggestion.estimated_cost:,.0f}"
+                        )
+                    with cols[2]:
+                        if roi.payback_months:
+                            st.metric(
+                                "Payback Period", f"{roi.payback_months:.1f} months"
+                            )
+
+                    if roi.assumptions:
+                        with st.expander("Assumptions", expanded=False):
+                            for assumption in roi.assumptions:
+                                st.markdown(f"- {assumption}")
+
+
+def _render_clarification(message: ChatMessage) -> None:
+    """Render clarification questions."""
+    st.markdown(message.content)
+
+    if not message.questions:
+        return
+
+    # Questions are rendered but handled by the parent component
+    # This just displays them; actual input handling is in the main app
+    for q in message.questions:
+        st.markdown(
+            f"""
+            <div style="
+                padding: 0.5rem 0.75rem;
+                background: {COLORS['background_alt']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 0.375rem;
+                margin-bottom: 0.5rem;
+            ">
+                {q.get('text', q.get('question', ''))}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_message(message: ChatMessage) -> None:
+    """Render a single chat message based on its type."""
+    # System messages render outside the chat bubble
+    if message.role == MessageRole.SYSTEM:
+        if message.type == MessageType.STATUS:
+            _render_status_message(message)
+        elif message.type == MessageType.ERROR:
+            _render_error_message(message)
+        return
+
+    # User and agent messages use Streamlit's chat_message
+    with st.chat_message(message.role.value):
+        if message.type == MessageType.TEXT:
+            _render_text_message(message)
+        elif message.type == MessageType.FILE:
+            _render_file_message(message)
+        elif message.type == MessageType.DATA_CARD:
+            _render_data_card(message)
+        elif message.type == MessageType.ANALYSIS:
+            _render_analysis_results(message)
+        elif message.type == MessageType.CLARIFICATION:
+            _render_clarification(message)
+        else:
+            # Fallback to text
+            _render_text_message(message)
+
+
+def render_chat_history(messages: list[ChatMessage]) -> None:
+    """Render the full chat history."""
+    for message in messages:
+        render_message(message)
+
+
+def render_chat_input(
+    placeholder: str = "Describe your process or ask a question...",
+    key: str = "chat_input",
+) -> str | None:
+    """Render the chat input box and return user input."""
+    return st.chat_input(placeholder, key=key)
+
+
+def render_file_uploader(
+    label: str = "Or drop a file here",
+    accepted_types: list[str] | None = None,
+    key: str = "file_upload",
+) -> Any:
+    """Render a file uploader.
+
+    Args:
+        label: Label text for the uploader.
+        accepted_types: List of accepted file extensions.
+        key: Unique key for the widget.
+
+    Returns:
+        Uploaded file object or None.
+    """
+    if accepted_types is None:
+        accepted_types = [
+            "pdf",
+            "docx",
+            "doc",
+            "xlsx",
+            "xls",
+            "csv",
+            "pptx",
+            "ppt",
+            "html",
+            "htm",
+            "png",
+            "jpg",
+            "jpeg",
+            "tiff",
+            "bmp",
+        ]
+
+    return st.file_uploader(
+        label,
+        type=accepted_types,
+        key=key,
+        label_visibility="collapsed",
+    )
+
+
+def render_typing_indicator() -> None:
+    """Render a typing/processing indicator."""
+    st.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: {COLORS['text_muted']};
+            font-size: 0.875rem;
+            padding: 0.5rem 0;
+        ">
+            <div style="
+                width: 0.5rem;
+                height: 0.5rem;
+                background: {COLORS['primary']};
+                border-radius: 50%;
+                animation: pulse 1.5s infinite;
+            "></div>
+            Processing...
+        </div>
+        <style>
+            @keyframes pulse {{
+                0%, 100% {{ opacity: 0.4; }}
+                50% {{ opacity: 1; }}
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_welcome_message() -> None:
+    """Render the initial welcome message."""
+    with st.chat_message("assistant"):
+        st.markdown(
+            """
+            Tell me about a process you'd like to improve, or drop a file describing it.
+
+            I can analyze workflows to find bottlenecks and estimate the ROI of potential improvements.
+            """
+        )
+
+
+def render_confirm_buttons(
+    on_confirm: str = "confirm_data",
+    on_estimate: str = "estimate_missing",
+    show_estimate: bool = False,
+) -> tuple[bool, bool]:
+    """Render confirm/estimate buttons for data review.
+
+    Args:
+        on_confirm: Key for confirm button.
+        on_estimate: Key for estimate button.
+        show_estimate: Whether to show the "Estimate Missing" button.
+
+    Returns:
+        Tuple of (confirmed, wants_estimate).
+    """
+    estimate_clicked = False
+
+    if show_estimate:
+        _, col_est, col_confirm = st.columns([2, 1, 1])
+        with col_est:
+            estimate_clicked = st.button(
+                "Estimate Missing",
+                key=on_estimate,
+                width="stretch",
+            )
+    else:
+        _, col_confirm = st.columns([3, 1])
+
+    with col_confirm:
+        confirm_clicked = st.button(
+            "Confirm & Analyze",
+            key=on_confirm,
+            type="primary",
+            width="stretch",
+        )
+
+    return confirm_clicked, estimate_clicked

@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.eggs/
+*.egg-info/
+
+# uv
+uv.lock
+
+# Environment
+.env
+.env.local
+
+# Virtual environments
+.venv
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+#claude
+.claude/
+CLAUDE.md
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+data/*.csv
+data/*.xlsx
+!data/sample_*.csv
+!data/sample_*.json
+docs/private/
+
+# ChromaDB local storage
+.chroma/

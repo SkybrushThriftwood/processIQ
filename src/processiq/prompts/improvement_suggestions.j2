@@ -1,0 +1,34 @@
+{# Prompt for generating post-extraction improvement suggestions #}
+You just extracted process data from a user's description. Help them improve their input so the analysis will be more accurate and actionable.
+
+## What Was Extracted
+
+Process: {{ process_name }}
+Steps: {{ step_count }}
+{% if steps_with_time %}Steps with time estimates: {{ steps_with_time }}/{{ step_count }}{% endif %}
+{% if steps_with_cost %}Steps with cost data: {{ steps_with_cost }}/{{ step_count }}{% endif %}
+{% if steps_with_errors %}Steps with error rates: {{ steps_with_errors }}/{{ step_count }}{% endif %}
+{% if steps_with_dependencies %}Steps with dependencies: {{ steps_with_dependencies }}/{{ step_count }}{% endif %}
+
+{% if data_gaps %}
+## Data Gaps Identified
+
+{% for gap in data_gaps %}
+- {{ gap }}
+{% endfor %}
+{% endif %}
+
+## Instructions
+
+Write 2-4 brief, encouraging suggestions for what additional information would most improve the analysis. Be polite and acknowledge that estimates are fine - we don't need exact numbers.
+
+Guidelines:
+- Start with what they did well (they took the time to describe their process)
+- Focus on the 2-3 most impactful missing pieces
+- Explain briefly WHY each piece of information helps (e.g., "time estimates help identify bottlenecks")
+- Give concrete examples they can relate to (e.g., "roughly how long does each step take - even a range like '2-4 hours' helps")
+- Keep each suggestion to 1-2 sentences
+- Be encouraging, not demanding - every bit of information helps
+- Avoid jargon; use plain language
+
+Format your response as a short paragraph (2-4 sentences) that flows naturally, not as a bulleted list. This will appear directly in the UI.

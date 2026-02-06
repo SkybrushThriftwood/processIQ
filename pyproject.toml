@@ -1,0 +1,101 @@
+[project]
+name = "processiq"
+version = "0.1.0"
+description = "AI-powered process optimization advisor"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Thomas Lucke", email = "lucke.thomas@gmail.com" }]
+
+dependencies = [
+    # Agent orchestration
+    "langgraph>=1.0.7",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+    "langchain-core>=1.2.7",
+    "langchain-openai>=1.1.7",
+    "langchain-anthropic>=1.3.1",
+    "langchain-ollama>=0.3.3",
+    "langchain-community>=0.4.1",
+    # LLM utilities
+    "instructor>=1.14.4",
+    # Data models & config
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "python-dotenv>=1.2.1",
+    # Templating
+    "jinja2>=3.1.4",
+    # Data processing
+    "pandas>=2.2.0",              # Using 2.2.x; pandas 3.0 has breaking changes
+    "openpyxl>=3.1.5",
+    # UI
+    "streamlit>=1.53.1",
+    "plotly>=6.5.2",
+    # Observability
+    "langsmith>=0.6.6",
+    # Phase 2 (uncomment when needed):
+    # "chromadb>=1.4.1",
+    "docling>=2.71.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "mypy>=1.19.1",
+    "ruff>=0.14.14",
+    "pre-commit>=4.5.1",
+    "pandas-stubs>=2.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/processiq"]
+
+# Ruff configuration (replaces black, isort, flake8)
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+known-first-party = ["processiq"]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["streamlit.*", "plotly.*", "chromadb.*"]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

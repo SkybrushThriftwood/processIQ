@@ -1,0 +1,23 @@
+{
+  "industry": "financial_services",
+  "company_size": "mid_market",
+  "regulatory_environment": "strict",
+  "typical_constraints": [
+    "SOX compliance required",
+    "All changes need audit trail",
+    "Quarterly freeze periods"
+  ],
+  "preferred_frameworks": [
+    "Lean",
+    "Six Sigma"
+  ],
+  "previous_improvements": [
+    "Automated routing system (2023)",
+    "Digital signature implementation (2022)"
+  ],
+  "rejected_approaches": [
+    "Offshore processing",
+    "Full automation without human review"
+  ],
+  "notes": "Conservative company culture, prefers incremental improvements over major overhauls"
+}

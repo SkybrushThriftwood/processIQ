@@ -1,0 +1,6 @@
+step_name,average_time_hours,resources_needed,error_rate_pct,cost_per_instance,depends_on
+Submit Request,0.5,1,2,37.50,
+Manager Review,1.2,1,5,90.00,Submit Request
+Legal Approval,2.1,1,8,157.50,Manager Review
+Finance Check,0.8,1,3,60.00,Manager Review
+Final Approval,0.3,1,1,22.50,Legal Approval;Finance Check

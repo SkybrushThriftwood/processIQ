@@ -1,0 +1,35 @@
+{# Prompt for generating clarification questions #}
+Based on the analysis so far, we need additional information to improve confidence.
+
+## Current Status
+
+- Confidence Level: {{ confidence | round(0) }}%
+- Analysis Phase: {{ phase }}
+
+## Data Gaps Identified
+
+{% for gap in data_gaps %}
+- {{ gap }}
+{% endfor %}
+{% if partial_results %}
+
+## What We Know So Far
+
+{% for result in partial_results %}
+- {{ result }}
+{% endfor %}
+{% endif %}
+
+## Instructions
+
+Generate 2-3 specific questions to ask the user that would:
+1. Fill the most impactful data gaps
+2. Improve confidence in our ROI estimates
+3. Be easy for the user to answer (avoid open-ended questions)
+
+For each question:
+- State the question clearly
+- Briefly explain why it matters (1 sentence)
+- Suggest example answers if helpful
+
+Format as a numbered list.

@@ -1,0 +1,87 @@
+---
+title: ProcessIQ — Agentic Architecture
+---
+flowchart TD
+    %% Styling
+    classDef deterministic fill:#d6f5d6,stroke:#2d8a2d,stroke-width:2px,color:#1a1a1a
+    classDef agentic fill:#fff3cd,stroke:#b8860b,stroke-width:2px,color:#1a1a1a
+    classDef decision fill:#d0e0f7,stroke:#2456b5,stroke-width:2.5px,color:#1a1a1a
+    classDef output fill:#f8d7da,stroke:#c0392b,stroke-width:2.5px,color:#1a1a1a
+    classDef phase2 fill:#e8e8e8,stroke:#999,stroke-width:1.5px,stroke-dasharray:5 5,color:#666
+
+    %% ── 1. INPUT & INGESTION ──
+    subgraph Ingestion ["1 · User Input & Ingestion"]
+        direction TB
+        UI["Streamlit UI"]:::deterministic
+        FORMS["Forms<br>(structured entry)"]:::deterministic
+        FILES["CSV / Excel Upload<br>(power user)"]:::deterministic
+        CHAT["Text Description<br>(basic conversational)"]:::deterministic
+
+        UI --> FORMS
+        UI --> FILES
+        UI --> CHAT
+
+        FORMS --> VALID
+        FILES --> VALID
+        CHAT --> EXTRACT["LLM: Extract ProcessData"]:::agentic
+        EXTRACT --> REVIEW["User Reviews<br>Extracted Data"]:::deterministic
+        REVIEW --> VALID
+
+        VALID(["Validated Pydantic Models"]):::deterministic
+    end
+
+    %% ── 2. AGENT CORE (LANGGRAPH) ──
+    subgraph Agent ["2 · Agent Orchestration — LangGraph"]
+        direction TB
+
+        CTX{"1\. Sufficient<br>Context?"}:::decision
+        CTX -- "No" --> CLARIFY["Clarify with User"]:::agentic
+        CLARIFY -- "User replies" --> CTX
+
+        CTX -- "Yes" --> BOTTLENECK["Bottleneck Detection<br>(deterministic)"]:::deterministic
+        BOTTLENECK --> PRIORITY["2\. Multi-Bottleneck<br>Prioritization"]:::agentic
+
+        PRIORITY --> CONFLICT{"3\. Constraint<br>Conflicts?"}:::decision
+        CONFLICT -- "Yes" --> RESOLVE["Resolve or<br>Ask User"]:::agentic
+        RESOLVE --> CONFLICT
+
+        CONFLICT -- "No" --> ROI["ROI Calculation<br>(deterministic)"]:::deterministic
+
+        ROI --> CONF{"4\. Confidence<br>>= Threshold?"}:::decision
+        CONF -- "No" --> GAPS["Identify Gaps"]:::agentic
+        GAPS -- "User / external data" --> CTX
+
+        CONF -- "Yes" --> SUGGEST["Generate<br>Suggestions"]:::agentic
+        SUGGEST --> VALIDATE["Validate Against<br>Constraints"]:::deterministic
+    end
+
+    %% ── 3. KNOWLEDGE ENRICHMENT (Phase 2) ──
+    subgraph Knowledge ["3 · Knowledge Enrichment — Phase 2"]
+        direction TB
+        RAG["RAG / Knowledge Base"]:::phase2
+        BENCH["Industry Benchmarks"]:::phase2
+        WEB["Web / External Sources"]:::phase2
+    end
+
+    %% ── 4. OUTPUT ──
+    subgraph Output ["4 · Output & Transparency"]
+        direction TB
+        RESULT["Suggestions + ROI Estimates<br>Confidence Scores<br>Reasoning Trace<br>Assumptions"]:::output
+        EXPORT["Export: CSV · A3 Report"]:::output
+        RESULT --> EXPORT
+    end
+
+    %% ── Cross-subgraph connections ──
+    VALID --> CTX
+    VALIDATE --> RESULT
+
+    %% Knowledge feeds gap resolution (Phase 2)
+    GAPS -.-> RAG
+    GAPS -.-> BENCH
+    GAPS -.-> WEB
+
+    %% ── Subgraph styling ──
+    style Ingestion fill:#f9fdf9,stroke:#2d8a2d,stroke-width:2px
+    style Agent fill:#fffef5,stroke:#b8860b,stroke-width:2px
+    style Knowledge fill:#f5f5f5,stroke:#999,stroke-width:1.5px,stroke-dasharray:5 5
+    style Output fill:#fef5f5,stroke:#c0392b,stroke-width:2px

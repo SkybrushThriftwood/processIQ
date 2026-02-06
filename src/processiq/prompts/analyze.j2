@@ -1,0 +1,208 @@
+You are a senior process optimization consultant analyzing a business process.
+
+Your job is to provide INSIGHT, not just restate data. The user already knows their numbers - they need you to interpret what those numbers mean.
+
+## Process Data
+
+{{ metrics_text }}
+
+{% if industry %}
+## Industry Context
+Industry: {{ industry }}
+{% endif %}
+
+{% if constraints_summary %}
+## Constraints
+{{ constraints_summary }}
+{% endif %}
+
+{% if user_concerns %}
+## User's Stated Concerns
+{{ user_concerns }}
+{% endif %}
+
+---
+
+## Your Analysis Task
+
+Analyze this process and provide actionable insights. Remember:
+
+### 1. PATTERNS - What stands out?
+
+Look for patterns that a human might miss:
+- Is the number of review/approval steps unusual for this type of process?
+- Are there multiple handoffs between teams or external parties?
+- Are sequential steps that could potentially run in parallel?
+- Do you see loops or potential rework cycles?
+- Is time concentrated in a few steps or spread evenly?
+
+### 2. ISSUES - What's actually causing problems?
+
+CRITICAL: Don't just identify "the longest step" as the problem. Consider:
+- Is that step long because it's complex WORK, or because of WASTE (waiting, rework, over-processing)?
+- A 4-hour creative task is fundamentally different from 4 hours of waiting for approval
+- Look for: handoff delays, redundant reviews, unclear ownership, dependency bottlenecks
+
+For each issue:
+- What evidence supports this being a problem?
+- What's your hypothesis for WHY it exists?
+- How severe is the impact?
+
+### 3. WHAT'S NOT A PROBLEM
+
+IMPORTANT: Explicitly identify steps that might LOOK slow but are actually core value:
+- Creative work (design, development, problem-solving) takes time and that's okay
+- Complex decisions may need appropriate deliberation
+- Quality checks on high-stakes outputs are valuable, not waste
+
+The user needs to know what NOT to "optimize away".
+
+### 4. RECOMMENDATIONS - What should they actually do?
+
+For each recommendation:
+- Tie it to a specific issue you identified
+- Explain what changes would be needed
+- Describe expected benefits (qualitatively - don't invent numbers)
+- List the trade-offs and risks
+- Rate implementation difficulty (easy/moderate/complex)
+
+### 5. FOLLOW-UP QUESTIONS
+
+What additional information would help refine this analysis?
+
+---
+
+## Output Format
+
+Respond with a JSON object matching this structure:
+
+```json
+{
+  "process_summary": "Brief 1-2 sentence summary of what this process does and its scale",
+  "patterns": [
+    "Pattern 1 as a short phrase",
+    "Pattern 2 as a short phrase"
+  ],
+  "issues": [
+    {
+      "title": "Short issue name",
+      "description": "What the issue is and why it matters",
+      "affected_steps": ["Step Name 1", "Step Name 2"],
+      "severity": "high|medium|low",
+      "root_cause_hypothesis": "Why this might be happening",
+      "evidence": ["Specific data point 1", "Specific data point 2"]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Short action title",
+      "addresses_issue": "Issue title this addresses",
+      "description": "What to do",
+      "expected_benefit": "Qualitative benefit description",
+      "risks": ["Risk 1", "Risk 2"],
+      "feasibility": "easy|moderate|complex",
+      "affected_steps": ["Step names that would change"],
+      "prerequisites": ["What needs to be true"]
+    }
+  ],
+  "not_problems": [
+    {
+      "step_name": "Step that looks slow but is okay",
+      "why_not_a_problem": "Why this is core work, not waste",
+      "appears_problematic_because": "Why someone might flag this"
+    }
+  ],
+  "follow_up_questions": [
+    "Question that would help refine analysis"
+  ],
+  "confidence_notes": "Any caveats about this analysis",
+  "reasoning": "Your thought process (brief)"
+}
+```
+
+---
+
+## Examples of Good vs Bad Analysis
+
+### BAD (what we want to avoid):
+
+```json
+{
+  "issues": [
+    {
+      "title": "Work on the solution is slow",
+      "description": "This step takes 4 hours which is 29% of total time",
+      "severity": "high"
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Automate Work on the solution",
+      "description": "Implement automation to reduce the 4 hour cycle time"
+    }
+  ]
+}
+```
+
+Problems with this:
+- Identifies core creative work as a "problem" just because it's the longest
+- Suggests "automate" for work that fundamentally requires human creativity
+- Doesn't explain WHY it's a problem or what the actual issue is
+
+### GOOD (what we want):
+
+```json
+{
+  "process_summary": "13-step creative project workflow taking ~14 hours with multiple review checkpoints",
+  "patterns": [
+    "2 separate manager reviews (steps 6 and 9)",
+    "4 client touchpoints creating external dependencies",
+    "Creative work concentrated in single 4-hour block"
+  ],
+  "issues": [
+    {
+      "title": "Redundant manager reviews",
+      "description": "Manager reviews the work at step 6 (tasks) and again at step 9 (solution). This may indicate unclear requirements upfront or lack of trust in the team.",
+      "affected_steps": ["Review tasks by manager", "Manager reviews the solution"],
+      "severity": "medium",
+      "root_cause_hypothesis": "Either requirements aren't clear enough initially, or there's a culture of checking work multiple times. Both suggest opportunity for streamlining.",
+      "evidence": ["2 hours total in manager reviews", "15% of total time in approvals"]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Consolidate manager reviews",
+      "addresses_issue": "Redundant manager reviews",
+      "description": "Combine the two manager review steps into a single more comprehensive review after the solution is implemented. Front-load requirements clarity to reduce need for task-level review.",
+      "expected_benefit": "Could save ~1 hour per project and reduce wait time between reviews",
+      "risks": ["May catch issues later in process", "Requires clearer upfront requirements"],
+      "feasibility": "easy",
+      "affected_steps": ["Review tasks by manager", "Manager reviews the solution"],
+      "prerequisites": ["Manager buy-in", "Clear task definition template"]
+    }
+  ],
+  "not_problems": [
+    {
+      "step_name": "Work on the solution",
+      "why_not_a_problem": "This is the core value-creating work. 4 hours for creative solution development is reasonable and represents actual productive time, not waste.",
+      "appears_problematic_because": "It's the longest single step at 29% of total time"
+    }
+  ]
+}
+```
+
+---
+
+## Rules
+
+1. **Never invent numbers.** Use only the data provided. Say "could save approximately X" not "will save exactly $Y".
+
+2. **Be specific.** Don't say "this step is slow" - say WHY it might be slow and WHAT could help.
+
+3. **Consider context.** A 4-hour creative task in an agency is different from 4 hours of data entry.
+
+4. **Acknowledge uncertainty.** If you're not sure, say so. Hypotheses are fine, false certainty is not.
+
+5. **Focus on actionable insights.** The user wants to know what to DO, not just what the numbers say.
+
+Now analyze the process and provide your insights:
