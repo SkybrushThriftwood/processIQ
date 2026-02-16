@@ -78,11 +78,6 @@ Categories: `DESIGN`, `ARCHITECTURE`, `SCOPE`, `TECH`, `DECISION`
 
 ## 2026-02-06
 
-### FIX: Type annotation for `get_llm_provider()` return type
-
-- Changed `get_llm_provider()` return type from `str` to `Literal["anthropic", "openai", "ollama"]` in `state.py`
-- Resolves 4 Pyright type errors in `handlers.py` where the `str` return was incompatible with `Literal` parameters on `extract_from_file`, `extract_from_text`, and `analyze_process`
-
 ### CODE: UI Fixes Batch 2
 
 - **LLM Provider Selector**: New sidebar radio (OpenAI / Anthropic / Ollama) above analysis mode; Ollama greys out mode selector
