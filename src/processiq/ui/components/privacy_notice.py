@@ -34,6 +34,9 @@ def render_privacy_notice(expanded: bool = False) -> None:
         unsafe_allow_html=True,
     )
 
+    # Spacing
+    st.markdown("<div style='margin-top: 0.5rem;'></div>", unsafe_allow_html=True)
+
     # Technical details - expandable
     with st.expander("Technical details", expanded=expanded):
         st.markdown(

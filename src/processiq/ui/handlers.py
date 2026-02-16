@@ -43,7 +43,6 @@ from processiq.ui.state import (
     is_input_pending,
     set_analysis_insight,
     set_analysis_pending,
-    set_analysis_result,
     set_chat_state,
     set_confidence,
     set_constraints,
@@ -236,18 +235,14 @@ def handle_estimate_button() -> None:
         return
 
     # Snapshot before estimation for comparison
-    old_steps_repr = repr(
-        [
-            (
-                s.step_name,
-                s.average_time_hours,
-                s.cost_per_instance,
-                s.error_rate_pct,
-                s.resources_needed,
-            )
-            for s in process_data.steps
+    def _step_snapshot(steps):
+        return [
+            (s.step_name, s.average_time_hours, s.cost_per_instance,
+             s.error_rate_pct, s.resources_needed)
+            for s in steps
         ]
-    )
+
+    old_snapshot = _step_snapshot(process_data.steps)
 
     add_message(create_status_message("Estimating missing values..."))
 
@@ -267,19 +262,7 @@ def handle_estimate_button() -> None:
     # Check if data actually changed
     new_data = get_process_data()
     if new_data:
-        new_steps_repr = repr(
-            [
-                (
-                    s.step_name,
-                    s.average_time_hours,
-                    s.cost_per_instance,
-                    s.error_rate_pct,
-                    s.resources_needed,
-                )
-                for s in new_data.steps
-            ]
-        )
-        if new_steps_repr == old_steps_repr:
+        if _step_snapshot(new_data.steps) == old_snapshot:
             add_message(
                 create_agent_message(
                     "All values that can be reliably estimated are already filled in. "
@@ -427,19 +410,18 @@ def _handle_continuing_input(user_input: str) -> None:
 
     Detects:
     - Re-analysis requests with constraint modifications
-    - General follow-up questions about results
+    - General follow-up questions about results (sent to LLM)
     """
     from processiq.models import Constraints
     from processiq.models.constraints import Priority
 
     lower_input = user_input.lower()
 
-    # Check for re-analysis requests
+    # Check for re-analysis requests (explicit triggers only)
     reanalyze_triggers = [
         "re-analyze",
         "reanalyze",
         "try again",
-        "what if",
         "analyze again",
         "run again",
     ]
@@ -508,12 +490,83 @@ def _handle_continuing_input(user_input: str) -> None:
                 )
             )
     else:
-        # General follow-up question
+        # Follow-up question — send to LLM with analysis context
+        _handle_followup_question(user_input)
+
+
+def _handle_followup_question(user_input: str) -> None:
+    """Answer a follow-up question about analysis results using the LLM."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from processiq.agent.nodes import (
+        _format_business_context_for_llm,
+        _format_constraints_for_llm,
+    )
+    from processiq.llm import extract_text_content, get_chat_model
+    from processiq.prompts import get_followup_prompt, get_system_prompt
+    from processiq.ui.state import get_analysis_insight
+
+    insight = get_analysis_insight()
+    if not insight:
         add_message(
             create_agent_message(
-                "I can help you explore these results further. "
-                "You can ask about specific bottlenecks, recommendations, "
-                "or say 're-analyze' to try different constraints."
+                "No analysis results available. Run an analysis first, "
+                "then ask follow-up questions."
+            )
+        )
+        return
+
+    # Build recent chat history (last 10 messages, skip status/system messages)
+    history = []
+    for msg in get_messages()[-20:]:
+        if msg.type.value in ("text", "analysis"):
+            role = "User" if msg.role.value == "user" else "Advisor"
+            history.append({"role": role, "content": msg.content})
+    # Keep only the last 10 conversational messages
+    history = history[-10:]
+
+    # Format business context and constraints if available
+    profile = get_business_profile()
+    constraints = get_constraints()
+    business_context = _format_business_context_for_llm(profile) if profile else None
+    constraints_summary = (
+        _format_constraints_for_llm(constraints) if constraints else None
+    )
+
+    prompt = get_followup_prompt(
+        insight=insight,
+        user_question=user_input,
+        history=history,
+        business_context=business_context,
+        constraints_summary=constraints_summary,
+    )
+
+    try:
+        model = get_chat_model(task="clarification")
+        system_msg = get_system_prompt(profile=profile)
+        messages = [
+            SystemMessage(content=system_msg),
+            HumanMessage(content=prompt),
+        ]
+
+        response = model.invoke(messages)
+        answer = extract_text_content(response)
+
+        if answer:
+            add_message(create_agent_message(answer))
+        else:
+            logger.warning("LLM returned empty response for follow-up question")
+            add_message(
+                create_agent_message(
+                    "I wasn't able to generate a response. Could you rephrase your question?"
+                )
+            )
+
+    except Exception:
+        logger.exception("Failed to answer follow-up question")
+        add_message(
+            create_error_message(
+                "Something went wrong while processing your question. Please try again."
             )
         )
 
@@ -641,16 +694,12 @@ def execute_pending_analysis() -> bool:
         return True
 
     if response.has_analysis:
-        # Success - store results (prefer analysis_insight over analysis_result)
+        # Store LLM-based insight
         if response.analysis_insight is not None:
             set_analysis_insight(response.analysis_insight)
-        if response.analysis_result is not None:
-            set_analysis_result(response.analysis_result)
 
-        # Create message - pass insight if available, else fall back to result
         add_message(
             create_analysis_message(
-                analysis_result=response.analysis_result,
                 analysis_insight=response.analysis_insight,
                 content=response.message,
             )

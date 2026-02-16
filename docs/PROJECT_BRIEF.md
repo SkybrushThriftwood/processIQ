@@ -625,9 +625,11 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 - File drop zone with 14 supported formats
 - Smart interviewer pattern (extract OR clarify, never both)
 - Guided mode (chat-only) and Expert mode (editable data tables)
-- Advanced options sidebar (constraints, business context, analysis mode)
+- Advanced options sidebar (constraints, business context with revenue range, analysis mode)
+- Business context fields: industry, company size, annual revenue, regulatory level, free-text notes
 - Privacy notice component (two-tier explanation)
 - Summary-first results display (issues linked to recommendations)
+- Progressive disclosure on recommendations (3 layers: summary, plain explanation, concrete next steps)
 - Draft analysis preview after extraction
 - Targeted follow-up questions based on data gaps
 - "Estimate Missing" button for step-level gaps
@@ -685,6 +687,20 @@ ProcessIQ makes recommendations with financial impact. Users need to understand 
 - **Confidence notes** in results explain analysis limitations
 - **"Not a Problem" section** shows steps the LLM identified as core value work (not waste)
 
+### Progressive Disclosure on Recommendations
+
+Recommendations use a 3-layer progressive disclosure pattern so non-technical users aren't overwhelmed, but can drill deeper on demand:
+
+| Layer | Content | Visibility |
+|-------|---------|------------|
+| **1 — Summary** | Title, description, expected benefit, feasibility | Always visible |
+| **2 — Plain explanation** | What this means in non-technical terms, realistic cost for this business size | Expandable ("What this means in practice") |
+| **3 — Next steps** | 2-4 concrete actions, first one doable this week | Expandable ("How to get started") |
+
+**Why this matters:** A recommendation like "Implement workflow automation ($15-50K/year)" is actively harmful to a small bakery. With business context (revenue range, company size, free-text notes) and progressive disclosure, the same recommendation becomes "Use a simple routing tool like Zapier ($20-50/month)" with a concrete first step: "Try a free trial and set up 2-3 basic rules."
+
+Business context fields (industry, company size, annual revenue, regulatory level, free-text notes) are passed to the LLM in both the system prompt and analysis prompt, with explicit instructions to calibrate costs and tool suggestions to the business scale.
+
 ---
 
 ## Success Criteria
@@ -705,6 +721,8 @@ ProcessIQ makes recommendations with financial impact. Users need to understand 
 - Non-technical users can start immediately via chat
 - Reasoning is transparent: users see what the LLM found and why
 - Assumptions are clearly visible for every estimate
+- Recommendations are understandable without technical knowledge (progressive disclosure)
+- Cost estimates are calibrated to business size (not generic enterprise pricing)
 
 ---
 

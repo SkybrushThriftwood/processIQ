@@ -12,78 +12,73 @@ from datetime import UTC, datetime
 import streamlit as st
 
 from processiq.export import (
-    export_analysis_csv,
-    export_suggestions_csv,
-    export_summary_markdown,
-    export_summary_text,
+    export_insight_csv,
+    export_insight_markdown,
+    export_insight_text,
+    export_recommendations_csv,
 )
-from processiq.ui.state import get_analysis_result
+from processiq.ui.state import get_analysis_insight
 
 logger = logging.getLogger(__name__)
 
 
 def render_export_section() -> None:
     """Render the export section."""
-    result = get_analysis_result()
+    insight = get_analysis_insight()
 
-    if not result:
+    if not insight:
         return
 
     st.markdown("### Export & Next Steps")
 
-    # Export buttons
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M")
+
     col1, col2, col3 = st.columns(3)
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M")
-    process_slug = result.process_name.lower().replace(" ", "_")[:20]
-
     with col1:
-        # CSV Export
-        csv_data = export_analysis_csv(result)
+        csv_data = export_insight_csv(insight)
         st.download_button(
             label="Download CSV",
             data=csv_data,
-            file_name=f"processiq_{process_slug}_{timestamp}.csv",
+            file_name=f"processiq_analysis_{timestamp}.csv",
             mime="text/csv",
             help="Download results as CSV (compatible with Jira, Asana, Excel)",
         )
 
     with col2:
-        # Text Summary Export
-        text_data = export_summary_text(result)
+        text_data = export_insight_text(insight)
         st.download_button(
             label="Download Summary",
             data=text_data,
-            file_name=f"processiq_{process_slug}_{timestamp}.txt",
+            file_name=f"processiq_analysis_{timestamp}.txt",
             mime="text/plain",
             help="Download as formatted text (for email, documents)",
         )
 
     with col3:
-        # Markdown Export
-        md_data = export_summary_markdown(result)
+        md_data = export_insight_markdown(insight)
         st.download_button(
             label="Download Markdown",
             data=md_data,
-            file_name=f"processiq_{process_slug}_{timestamp}.md",
+            file_name=f"processiq_analysis_{timestamp}.md",
             mime="text/markdown",
             help="Download as Markdown (for documentation, GitHub)",
         )
 
-    # Suggestions-only CSV (for task import)
-    if result.suggestions:
+    # Recommendations-only CSV
+    if insight.recommendations:
         st.markdown("")
-        csv_suggestions = export_suggestions_csv(result.suggestions)
+        csv_recs = export_recommendations_csv(insight.recommendations)
         st.download_button(
             label="Download Recommendations Only (CSV)",
-            data=csv_suggestions,
-            file_name=f"processiq_recommendations_{process_slug}_{timestamp}.csv",
+            data=csv_recs,
+            file_name=f"processiq_recommendations_{timestamp}.csv",
             mime="text/csv",
             help="Just the recommendations - ready for project management tool import",
             type="secondary",
         )
 
-    # Next steps section
+    # Next steps
     st.markdown("---")
     st.markdown("#### If This Were a Real Engagement...")
 
@@ -103,11 +98,11 @@ def render_export_section() -> None:
         """
     )
 
-    # Quick copy of summary
+    # Quick copy
     with st.expander("Quick Copy Summary", expanded=False):
         st.text_area(
             "Copy this summary:",
-            value=export_summary_text(result),
+            value=export_insight_text(insight),
             height=300,
             key="quick_copy_summary",
             label_visibility="collapsed",

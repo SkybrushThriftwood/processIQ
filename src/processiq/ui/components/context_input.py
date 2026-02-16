@@ -195,12 +195,20 @@ def render_context_input() -> None:
 
 def _render_context_summary(profile: BusinessProfile) -> None:
     """Render a summary of the business context."""
-    industry_label = profile.custom_industry or INDUSTRY_LABELS[profile.industry]
-    summary_parts = [
-        industry_label,
-        COMPANY_SIZE_LABELS[profile.company_size].split(" (")[0],  # Just the label
-        REGULATORY_LABELS[profile.regulatory_environment] + " regulation",
-    ]
+    industry_label = (
+        profile.custom_industry
+        or (INDUSTRY_LABELS[profile.industry] if profile.industry else None)
+    )
+    summary_parts = []
+    if industry_label:
+        summary_parts.append(industry_label)
+    if profile.company_size:
+        summary_parts.append(
+            COMPANY_SIZE_LABELS[profile.company_size].split(" (")[0]
+        )
+    summary_parts.append(
+        REGULATORY_LABELS[profile.regulatory_environment] + " regulation"
+    )
 
     if profile.preferred_frameworks:
         summary_parts.append(f"{len(profile.preferred_frameworks)} framework(s)")

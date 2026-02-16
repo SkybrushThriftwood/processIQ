@@ -13,9 +13,13 @@ Design principles:
 import logging
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
+
+import pandas as pd
 
 from processiq.agent.context import build_conversation_context
 from processiq.agent.graph import compile_graph
@@ -120,6 +124,8 @@ class AgentResponse:
 def _generate_improvement_suggestions(
     process_data: ProcessData,
     confidence: ConfidenceResult,
+    analysis_mode: str | None = None,
+    llm_provider: str | None = None,
 ) -> str | None:
     """Generate user-friendly suggestions for improving extraction quality.
 
@@ -130,6 +136,8 @@ def _generate_improvement_suggestions(
     Args:
         process_data: The extracted process data.
         confidence: The calculated confidence result with data gaps.
+        analysis_mode: Optional analysis mode preset.
+        llm_provider: Optional LLM provider override.
 
     Returns:
         A short, friendly paragraph with improvement suggestions, or None
@@ -155,7 +163,11 @@ def _generate_improvement_suggestions(
         steps_with_errors = sum(1 for s in process_data.steps if s.error_rate_pct)
         steps_with_deps = sum(1 for s in process_data.steps if s.depends_on)
 
-        model = get_chat_model(task=TASK_EXPLANATION)
+        model = get_chat_model(
+            task=TASK_EXPLANATION,
+            analysis_mode=analysis_mode,
+            provider=llm_provider,
+        )
 
         system_msg = get_system_prompt()
         user_msg = get_improvement_suggestions_prompt(
@@ -176,10 +188,9 @@ def _generate_improvement_suggestions(
             ]
         )
 
-        raw_content = (
-            response.content if hasattr(response, "content") else str(response)
-        )
-        suggestions = raw_content if isinstance(raw_content, str) else str(raw_content)
+        from processiq.llm import extract_text_content
+
+        suggestions = extract_text_content(response)
 
         logger.info("Generated improvement suggestions (%d chars)", len(suggestions))
         return suggestions.strip()
@@ -248,6 +259,55 @@ def _generate_draft_analysis(
     except Exception as e:
         logger.warning("Draft analysis failed (non-critical): %s", e)
         return None
+
+
+def _generate_post_extraction_extras(
+    process_data: ProcessData,
+    confidence: ConfidenceResult,
+    analysis_mode: str | None = None,
+    llm_provider: str | None = None,
+) -> tuple[str | None, AnalysisInsight | None]:
+    """Generate improvement suggestions and draft analysis in parallel.
+
+    These two LLM calls are independent of each other, so we run them
+    concurrently to reduce post-extraction latency.
+
+    Returns:
+        Tuple of (improvement_suggestions, draft_insight).
+    """
+    improvement_suggestions: str | None = None
+    draft_insight: AnalysisInsight | None = None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {
+            executor.submit(
+                _generate_improvement_suggestions,
+                process_data,
+                confidence,
+                analysis_mode,
+                llm_provider,
+            ): "suggestions",
+            executor.submit(
+                _generate_draft_analysis,
+                process_data,
+                confidence,
+                analysis_mode,
+                llm_provider,
+            ): "draft",
+        }
+
+        for future in as_completed(futures):
+            label = futures[future]
+            try:
+                result = future.result()
+                if label == "suggestions":
+                    improvement_suggestions = result
+                else:
+                    draft_insight = result
+            except Exception as e:
+                logger.warning("Post-extraction %s failed: %s", label, e)
+
+    return improvement_suggestions, draft_insight
 
 
 def analyze_process(
@@ -487,13 +547,8 @@ def extract_from_text(
             process_data, constraints=constraints, profile=profile
         )
 
-        # Generate improvement suggestions (if LLM explanations enabled)
-        improvement_suggestions = _generate_improvement_suggestions(
-            process_data, confidence
-        )
-
-        # Generate draft analysis preview (Task 3.3)
-        draft_insight = _generate_draft_analysis(
+        # Generate improvement suggestions + draft analysis in parallel
+        improvement_suggestions, draft_insight = _generate_post_extraction_extras(
             process_data,
             confidence,
             analysis_mode=analysis_mode,
@@ -531,6 +586,22 @@ def extract_from_text(
             is_error=True,
             error_code="unexpected_error",
         )
+
+
+def _file_bytes_to_text(file_bytes: bytes, suffix: str) -> str:
+    """Convert file bytes to LLM-readable text.
+
+    For binary formats (xlsx, xls), reads via pandas and converts to CSV.
+    For text formats, decodes as UTF-8.
+    """
+    if suffix in (".xlsx", ".xls"):
+        try:
+            df = pd.read_excel(BytesIO(file_bytes), engine="openpyxl")
+            return df.to_csv(index=False)
+        except Exception:
+            logger.warning("Failed to read %s via pandas for LLM fallback", suffix)
+            return file_bytes.decode("utf-8", errors="replace")
+    return file_bytes.decode("utf-8", errors="replace")
 
 
 def extract_from_file(
@@ -587,7 +658,9 @@ def extract_from_file(
             logger.info("Using Docling parser for %s file", suffix)
             parsed_doc = parse_document(file_bytes, filename)
             process_data, response = normalize_parsed_document(
-                parsed_doc, analysis_mode=analysis_mode
+                parsed_doc,
+                analysis_mode=analysis_mode,
+                provider=llm_provider,
             )
             used_llm = True
 
@@ -613,7 +686,7 @@ def extract_from_file(
             logger.info(
                 "Structured loading produced no steps, trying LLM normalization"
             )
-            content = file_bytes.decode("utf-8", errors="replace")
+            content = _file_bytes_to_text(file_bytes, suffix)
             process_data, response = normalize_with_llm(
                 content=content,
                 additional_context=f"This data was loaded from a file named {filename}",
@@ -639,7 +712,7 @@ def extract_from_file(
     except Exception as e:
         logger.warning("Structured loading failed, trying LLM normalization: %s", e)
         try:
-            content = file_bytes.decode("utf-8", errors="replace")
+            content = _file_bytes_to_text(file_bytes, suffix)
             process_data, response = normalize_with_llm(
                 content=content,
                 additional_context=f"This data was loaded from a file named {filename}",
@@ -687,13 +760,8 @@ def extract_from_file(
         process_data, constraints=constraints, profile=profile
     )
 
-    # Generate improvement suggestions (if LLM explanations enabled)
-    improvement_suggestions = _generate_improvement_suggestions(
-        process_data, confidence
-    )
-
-    # Generate draft analysis preview (Task 3.3)
-    draft_insight = _generate_draft_analysis(
+    # Generate improvement suggestions + draft analysis in parallel
+    improvement_suggestions, draft_insight = _generate_post_extraction_extras(
         process_data,
         confidence,
         analysis_mode=analysis_mode,

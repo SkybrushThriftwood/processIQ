@@ -6,9 +6,11 @@ Your job is to provide INSIGHT, not just restate data. The user already knows th
 
 {{ metrics_text }}
 
-{% if industry %}
-## Industry Context
-Industry: {{ industry }}
+{% if business_context %}
+## Business Context
+{{ business_context }}
+
+**IMPORTANT**: Calibrate all recommendations to this business. Cost estimates, tool suggestions, and implementation complexity must be realistic for a company of this size and revenue. Do not suggest enterprise-grade solutions to small businesses or vice versa.
 {% endif %}
 
 {% if constraints_summary %}
@@ -65,60 +67,12 @@ For each recommendation:
 - Describe expected benefits (qualitatively - don't invent numbers)
 - List the trade-offs and risks
 - Rate implementation difficulty (easy/moderate/complex)
+- **plain_explanation**: Explain what this means as if talking to someone who has never heard the term before. Include what it would realistically cost for a business of this size and context. Use specific tool categories or approaches, not jargon. Example: instead of "implement RPA", say "use a simple workflow tool like Zapier or Microsoft Power Automate to automatically route invoices based on amount -- typically $20-50/month for a small business."
+- **concrete_next_steps**: List 2-4 specific actions to get started. The FIRST step must be something they can do THIS WEEK with no budget. Not "evaluate options" -- actual steps like "create a shared spreadsheet tracking X" or "try a free trial of [tool category]".
 
 ### 5. FOLLOW-UP QUESTIONS
 
 What additional information would help refine this analysis?
-
----
-
-## Output Format
-
-Respond with a JSON object matching this structure:
-
-```json
-{
-  "process_summary": "Brief 1-2 sentence summary of what this process does and its scale",
-  "patterns": [
-    "Pattern 1 as a short phrase",
-    "Pattern 2 as a short phrase"
-  ],
-  "issues": [
-    {
-      "title": "Short issue name",
-      "description": "What the issue is and why it matters",
-      "affected_steps": ["Step Name 1", "Step Name 2"],
-      "severity": "high|medium|low",
-      "root_cause_hypothesis": "Why this might be happening",
-      "evidence": ["Specific data point 1", "Specific data point 2"]
-    }
-  ],
-  "recommendations": [
-    {
-      "title": "Short action title",
-      "addresses_issue": "Issue title this addresses",
-      "description": "What to do",
-      "expected_benefit": "Qualitative benefit description",
-      "risks": ["Risk 1", "Risk 2"],
-      "feasibility": "easy|moderate|complex",
-      "affected_steps": ["Step names that would change"],
-      "prerequisites": ["What needs to be true"]
-    }
-  ],
-  "not_problems": [
-    {
-      "step_name": "Step that looks slow but is okay",
-      "why_not_a_problem": "Why this is core work, not waste",
-      "appears_problematic_because": "Why someone might flag this"
-    }
-  ],
-  "follow_up_questions": [
-    "Question that would help refine analysis"
-  ],
-  "confidence_notes": "Any caveats about this analysis",
-  "reasoning": "Your thought process (brief)"
-}
-```
 
 ---
 
@@ -178,7 +132,9 @@ Problems with this:
       "risks": ["May catch issues later in process", "Requires clearer upfront requirements"],
       "feasibility": "easy",
       "affected_steps": ["Review tasks by manager", "Manager reviews the solution"],
-      "prerequisites": ["Manager buy-in", "Clear task definition template"]
+      "prerequisites": ["Manager buy-in", "Clear task definition template"],
+      "plain_explanation": "Right now your manager checks work twice: once when tasks are assigned and again when the solution is done. Instead, skip the first check and do one thorough review at the end. To make this work, you need clearer upfront instructions so the team knows exactly what's expected. This is a process change, not a technology purchase -- cost is essentially $0 beyond the time to create a checklist.",
+      "concrete_next_steps": ["Draft a one-page review checklist covering what both current reviews check for", "Run the next 2-3 projects with only the single end-of-work review as a trial", "After the trial, ask the manager and team what worked and what was missed"]
     }
   ],
   "not_problems": [

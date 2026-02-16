@@ -12,6 +12,7 @@ Describe a business process in plain text or upload a file, and ProcessIQ will:
 - **Analyze** the process to identify genuine bottlenecks, wasteful patterns, and root causes
 - **Distinguish** between waste and core value work (a 4-hour creative task is not a bottleneck)
 - **Recommend** specific improvements with trade-offs, feasibility, and expected benefits
+- **Explain** recommendations in plain language with realistic costs calibrated to your business size
 - **Calculate** ROI estimates with explicit assumptions and confidence ranges
 
 ## Architecture
@@ -61,6 +62,8 @@ flowchart TD
 ```
 
 **Core principle:** Algorithms calculate facts (metrics, percentages, dependencies). The LLM makes judgments (is this waste or value? what patterns are unusual?).
+
+**Progressive disclosure:** Recommendations are presented in 3 layers -- summary (always visible), plain-language explanation with business-calibrated costs (expandable), and concrete next steps (expandable). Business context (industry, revenue range, company size, free-text notes) is passed to the LLM so recommendations are scaled to the user's actual situation.
 
 ## Quick Start
 

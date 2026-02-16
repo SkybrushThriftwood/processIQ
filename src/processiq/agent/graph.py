@@ -27,6 +27,10 @@ from processiq.config import TASK_CLARIFICATION, settings
 
 logger = logging.getLogger(__name__)
 
+# Cached compiled graphs (keyed by checkpointer identity)
+_compiled_graph_no_cp: Any = None
+_compiled_graph_with_cp: dict[int, Any] = {}
+
 
 def build_graph() -> StateGraph[AgentState]:
     """Build the ProcessIQ analysis graph.
@@ -90,7 +94,10 @@ def build_graph() -> StateGraph[AgentState]:
 
 
 def compile_graph(checkpointer: Any = None) -> Any:
-    """Compile the graph for execution.
+    """Compile the graph for execution, with caching.
+
+    The graph structure is deterministic so compilation is cached.
+    One cached graph per unique checkpointer instance.
 
     Args:
         checkpointer: Optional checkpointer for state persistence.
@@ -99,14 +106,27 @@ def compile_graph(checkpointer: Any = None) -> Any:
     Returns:
         Compiled graph ready for invocation.
     """
+    global _compiled_graph_no_cp
+
+    if checkpointer is None:
+        if _compiled_graph_no_cp is not None:
+            logger.debug("Reusing cached compiled graph (no checkpointer)")
+            return _compiled_graph_no_cp
+        graph = build_graph()
+        logger.info("Compiling graph without checkpointer (first time)")
+        _compiled_graph_no_cp = graph.compile()
+        return _compiled_graph_no_cp
+
+    cp_id = id(checkpointer)
+    if cp_id in _compiled_graph_with_cp:
+        logger.debug("Reusing cached compiled graph (checkpointer=%d)", cp_id)
+        return _compiled_graph_with_cp[cp_id]
+
     graph = build_graph()
-
-    if checkpointer:
-        logger.info("Compiling graph with checkpointer")
-        return graph.compile(checkpointer=checkpointer)
-
-    logger.info("Compiling graph without checkpointer")
-    return graph.compile()
+    logger.info("Compiling graph with checkpointer (first time)")
+    compiled = graph.compile(checkpointer=checkpointer)
+    _compiled_graph_with_cp[cp_id] = compiled
+    return compiled
 
 
 def _generate_llm_clarification_questions(
@@ -114,6 +134,8 @@ def _generate_llm_clarification_questions(
     data_gaps: list[str],
     phase: str,
     partial_results: list[str] | None = None,
+    analysis_mode: str | None = None,
+    llm_provider: str | None = None,
 ) -> list[str] | None:
     """Generate clarification questions using LLM.
 
@@ -126,7 +148,11 @@ def _generate_llm_clarification_questions(
         from processiq.llm import get_chat_model
         from processiq.prompts import get_clarification_prompt, get_system_prompt
 
-        model = get_chat_model(task=TASK_CLARIFICATION)
+        model = get_chat_model(
+            task=TASK_CLARIFICATION,
+            analysis_mode=analysis_mode,
+            provider=llm_provider,
+        )
 
         system_msg = get_system_prompt()
         user_msg = get_clarification_prompt(
@@ -145,10 +171,9 @@ def _generate_llm_clarification_questions(
         )
 
         # Parse response into list of questions
-        raw_content = (
-            response.content if hasattr(response, "content") else str(response)
-        )
-        content = raw_content if isinstance(raw_content, str) else str(raw_content)
+        from processiq.llm import extract_text_content
+
+        content = extract_text_content(response)
 
         # Simple parsing: split by numbered lines
         questions: list[str] = []
@@ -187,6 +212,8 @@ def _request_clarification_node(state: AgentState) -> dict[str, Any]:
         data_gaps=data_gaps,
         phase="initial_analysis",
         partial_results=None,
+        analysis_mode=state.get("analysis_mode"),
+        llm_provider=state.get("llm_provider"),
     )
 
     used_llm = llm_questions is not None

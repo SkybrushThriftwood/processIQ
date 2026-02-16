@@ -109,14 +109,19 @@ _STATE_DEFAULTS: dict[str, Any] = {
     "partial_process": None,
     # Clarification context (user responses to agent questions)
     "clarification_context": "",
-    # Legacy keys for form-based components
-    "draft_steps": [],
-    "data_confirmed": False,
-    "confidence_score": 0.0,
-    "data_gaps": [],
+    # Structured clarification state
+    "pending_clarifications": None,  # ClarificationBundle or None
+    "clarification_responses": [],  # list[ClarificationResponse]
+    # Reasoning trace (populated by agent, displayed in results)
     "reasoning_trace": [],
-    "pending_clarifications": None,
-    "clarification_responses": [],
+    # Data review state
+    "data_confirmed": False,
+    "confidence_score": None,
+    "data_gaps": [],
+    # Draft step builder
+    "draft_steps": None,  # list[dict] or None
+    # File upload key counter (incrementing clears the widget)
+    "file_upload_key_counter": 0,
 }
 
 
@@ -400,6 +405,31 @@ def clear_clarification_context() -> None:
     st.session_state.clarification_context = ""
 
 
+# --- Structured Clarifications ---
+
+
+def get_pending_clarifications() -> ClarificationBundle | None:
+    """Get pending clarification bundle (structured questions for the user)."""
+    return st.session_state.get("pending_clarifications")
+
+
+def set_pending_clarifications(bundle: ClarificationBundle | None) -> None:
+    """Set pending clarification bundle."""
+    st.session_state.pending_clarifications = bundle
+
+
+def add_clarification_response(response: ClarificationResponse) -> None:
+    """Add a user response to a clarifying question."""
+    responses = st.session_state.get("clarification_responses", [])
+    responses.append(response)
+    st.session_state.clarification_responses = responses
+
+
+def clear_clarification_responses() -> None:
+    """Clear all clarification responses."""
+    st.session_state.clarification_responses = []
+
+
 # --- Analysis Pending ---
 
 
@@ -497,6 +527,70 @@ def clear_partial_process() -> None:
     st.session_state.partial_process = None
 
 
+# --- Data Review ---
+
+
+def is_data_confirmed() -> bool:
+    """Check if user has confirmed the data for analysis."""
+    return st.session_state.get("data_confirmed", False)
+
+
+def set_data_confirmed(confirmed: bool) -> None:
+    """Set data confirmed flag."""
+    st.session_state.data_confirmed = confirmed
+
+
+def set_confidence_score(score: float) -> None:
+    """Set the confidence score from data quality check."""
+    st.session_state.confidence_score = score
+
+
+def set_data_gaps(gaps: list[str]) -> None:
+    """Set the list of data gaps found during quality check."""
+    st.session_state.data_gaps = gaps
+
+
+# --- Draft Step Builder ---
+
+
+def get_draft_steps() -> list[dict] | None:
+    """Get draft steps from the step builder form."""
+    return st.session_state.get("draft_steps")
+
+
+def set_draft_steps(steps: list[dict] | None) -> None:
+    """Set draft steps."""
+    st.session_state.draft_steps = steps
+
+
+def add_draft_step(step: dict) -> None:
+    """Add a draft step to the builder."""
+    steps = get_draft_steps() or []
+    steps.append(step)
+    st.session_state.draft_steps = steps
+
+
+def remove_draft_step(index: int) -> None:
+    """Remove a draft step by index."""
+    steps = get_draft_steps() or []
+    if 0 <= index < len(steps):
+        steps.pop(index)
+        st.session_state.draft_steps = steps
+
+
+# --- File Upload Key ---
+
+
+def get_file_upload_key() -> str:
+    """Get a unique key for the file uploader widget.
+
+    The key includes a counter that increments on reset,
+    which forces Streamlit to create a new widget (clearing the file).
+    """
+    counter = st.session_state.get("file_upload_key_counter", 0)
+    return f"file_upload_{counter}"
+
+
 # --- Reset ---
 
 
@@ -528,11 +622,21 @@ def reset_conversation() -> None:
     st.session_state.confidence = None
     st.session_state.last_uploaded_file = None
     st.session_state.reset_requested = False
+    # Increment file upload key counter to clear the file uploader widget
+    st.session_state.file_upload_key_counter = (
+        st.session_state.get("file_upload_key_counter", 0) + 1
+    )
     st.session_state.analysis_pending = False
     st.session_state.input_pending = False
     st.session_state.pending_input_text = None
     st.session_state.pending_input_state = None
     st.session_state.clarification_context = ""
+    st.session_state.pending_clarifications = None
+    st.session_state.clarification_responses = []
+    st.session_state.data_confirmed = False
+    st.session_state.confidence_score = None
+    st.session_state.data_gaps = []
+    st.session_state.draft_steps = None
     # Note: Keep user_id, constraints, business_profile, analysis_mode
     logger.info("Conversation reset, new thread: %s", st.session_state.thread_id[:16])
 
@@ -557,79 +661,6 @@ def reset_all() -> None:
     logger.info("All state reset to defaults")
 
 
-# =============================================================================
-# Legacy functions for form-based components
-# These are kept for backwards compatibility with existing UI components
-# =============================================================================
-
-
-# --- Draft Steps (for form-based process input) ---
-
-
-def get_draft_steps() -> list[dict[str, Any]]:
-    """Get draft process steps (before validation)."""
-    return st.session_state.get("draft_steps", [])
-
-
-def set_draft_steps(steps: list[dict[str, Any]]) -> None:
-    """Set draft process steps."""
-    st.session_state.draft_steps = steps
-
-
-def add_draft_step(step: dict[str, Any]) -> None:
-    """Add a draft step."""
-    steps = get_draft_steps()
-    steps.append(step)
-    set_draft_steps(steps)
-
-
-def remove_draft_step(index: int) -> None:
-    """Remove a draft step by index."""
-    steps = get_draft_steps()
-    if 0 <= index < len(steps):
-        steps.pop(index)
-        set_draft_steps(steps)
-
-
-# --- Data Confirmation ---
-
-
-def is_data_confirmed() -> bool:
-    """Check if user has confirmed the data."""
-    return st.session_state.get("data_confirmed", False)
-
-
-def set_data_confirmed(confirmed: bool) -> None:
-    """Set data confirmation status."""
-    st.session_state.data_confirmed = confirmed
-
-
-# --- Confidence Score ---
-
-
-def get_confidence_score() -> float:
-    """Get confidence score."""
-    return st.session_state.get("confidence_score", 0.0)
-
-
-def set_confidence_score(score: float) -> None:
-    """Set confidence score."""
-    st.session_state.confidence_score = score
-
-
-# --- Data Gaps ---
-
-
-def get_data_gaps() -> list[str]:
-    """Get data gaps."""
-    return st.session_state.get("data_gaps", [])
-
-
-def set_data_gaps(gaps: list[str]) -> None:
-    """Set data gaps."""
-    st.session_state.data_gaps = gaps
-
-
 # --- Reasoning Trace ---
 
 
@@ -641,33 +672,3 @@ def get_reasoning_trace() -> list[str]:
 def set_reasoning_trace(trace: list[str]) -> None:
     """Set reasoning trace."""
     st.session_state.reasoning_trace = trace
-
-
-# --- Clarifications ---
-
-
-def get_pending_clarifications() -> ClarificationBundle | None:
-    """Get pending clarification questions."""
-    return st.session_state.get("pending_clarifications")
-
-
-def set_pending_clarifications(bundle: ClarificationBundle | None) -> None:
-    """Set pending clarification questions."""
-    st.session_state.pending_clarifications = bundle
-
-
-def get_clarification_responses() -> list[ClarificationResponse]:
-    """Get clarification responses."""
-    return st.session_state.get("clarification_responses", [])
-
-
-def add_clarification_response(response: ClarificationResponse) -> None:
-    """Add a clarification response."""
-    responses = get_clarification_responses()
-    responses.append(response)
-    st.session_state.clarification_responses = responses
-
-
-def clear_clarification_responses() -> None:
-    """Clear all clarification responses."""
-    st.session_state.clarification_responses = []

@@ -8,6 +8,74 @@ Categories: `DESIGN`, `ARCHITECTURE`, `SCOPE`, `TECH`, `DECISION`
 
 ---
 
+## 2026-02-16
+
+### FIX: Post-analysis follow-up conversation now uses LLM
+
+- Follow-up questions after analysis (including "Questions to Consider") were handled by regex string matching with a canned response — no LLM call. Now routes all follow-up questions to the LLM with full analysis context, chat history, business profile, and constraints.
+- Analysis results panel no longer vanishes when user sends a follow-up message (state `CONTINUING` now also renders results).
+- Removed "what if" from re-analyze triggers — these are conversational questions, not re-analysis requests.
+- New prompt template `followup.j2` for follow-up conversation context.
+
+### FIX: Asterisk indicator on extracted steps
+
+- Steps were marked with `*` (AI-estimated) even when the LLM just defaulted fields to 0 (no actual estimation). Now only shows `*` when estimated fields have non-zero values.
+
+### FIX: Deprecated Streamlit API
+
+- Replaced `use_container_width=True` with `width="stretch"` on data editor (deprecated after 2025-12-31).
+
+### DESIGN: Sidebar, File Upload, and Extraction Improvements
+
+- **Sidebar defaults removed**: Industry and Company Size no longer pre-select a value — show "Select..." placeholder instead. Made both fields optional on `BusinessProfile`.
+- **Regulation Level tooltip**: Added `help=` tooltip matching the pattern used by Annual Revenue.
+- **Privacy notice spacing**: Added visual gap between privacy notice box and "Technical details" expander.
+- **File upload reset fix**: File uploader now clears on conversation reset via dynamic widget key counter.
+- **"Send File" button**: File upload no longer auto-processes on selection. User must click "Send File" for explicit control.
+- **xlsx extraction fix**: Binary Excel files were being decoded as UTF-8 garbage for the LLM fallback. Now converts via pandas to CSV text before passing to LLM normalization.
+- **Early table creation**: Extraction prompt now creates a table as soon as step names are identifiable, even without timing data. Missing fields show as blank cells. "Confirm & Analyze" button is disabled until timing data is provided; "Estimate Missing" button remains available.
+
+### CODE: Efficiency and Workflow Optimizations
+
+- **Graph compilation caching** (`graph.py`): Module-level cache prevents recompiling the deterministic LangGraph on every analysis call
+- **Parallel post-extraction LLM calls** (`interface.py`): Improvement suggestions and draft analysis now run concurrently via `ThreadPoolExecutor`
+- **Structured output for analysis** (`nodes.py`): Replaced manual JSON parsing with `with_structured_output(AnalysisInsight)`, deleted ~50 lines of brittle `_parse_analysis_response()`; removed JSON schema section from `analyze.j2`
+- **Instructor client caching** (`normalizer.py`): Anthropic/OpenAI Instructor clients cached at module level instead of recreated per call
+- **Pre-compiled regex patterns** (`metrics.py`): Step-type inference patterns compiled once at module level
+- **Transitive closure fix** (`metrics.py`): Fixed `_get_transitive()`/`_get_transitive_upstream()` shared visited set — was copying per recursion call, causing exponential blowup on reconvergent DAGs
+- **Legacy dead code removal** (`state.py`, `chat.py`, `handlers.py`): Removed 15 unused form-based session state functions, 7 unused `_STATE_DEFAULTS` keys, and the `_render_analysis_results` AnalysisResult renderer (always showed "No results" since no node produces AnalysisResult)
+- **Estimate comparison fix** (`handlers.py`): Replaced `repr()` string comparison with direct tuple equality for step data change detection
+
+## 2026-02-12
+
+### DESIGN: Progressive Disclosure on Recommendations
+
+- Added `plain_explanation` and `concrete_next_steps` fields to `Recommendation` model in `insight.py`
+- Updated `analyze.j2` prompt with instructions and examples for generating non-technical explanations and actionable first steps
+- Updated `results_display.py` with two new `st.expander` sections per recommendation: "What this means in practice" and "How to get started"
+- Both compact (issue-linked) and standalone recommendation renderers updated
+
+### DESIGN: Business Context for Calibrated Recommendations
+
+- **Problem**: Recommendations like "automate this for $15-50k/year" are meaningless without business scale context. A 3-store bakery and a 1000-person enterprise get the same generic suggestions.
+- **Solution**: Added revenue range, free-text business notes, and full business profile threading into the analysis prompt.
+- Added `RevenueRange` enum to `BusinessProfile` (8 tiers from "Under $100K" to "Over $100M" plus "Prefer not to say")
+- Surfaced revenue dropdown and "About Your Business" text area in sidebar Business Context panel
+- Built `_format_business_context_for_llm()` in `nodes.py` to serialize full profile into LLM-readable format
+- Updated `analyze.j2` to receive `business_context` (replaces bare `industry` string) with explicit instruction to calibrate costs to business scale
+- Updated `system.j2` to include revenue and notes in system prompt
+- Updated `get_analysis_prompt()` signature: `industry` parameter replaced by `business_context`
+
+### FIX: GPT-5 Series and Cross-Provider Model Resolution
+
+- **GPT-5 parameter restrictions**: GPT-5 and o-series models reject `temperature!=1` and `max_tokens` (requires `max_completion_tokens`). Added `is_restricted_openai_model()` helper in `llm.py`; applied in both LangChain (`_get_openai_model`) and Instructor (`_extract_with_openai`) code paths.
+- **Cross-provider model bug**: When user selected "anthropic" in UI but `.env` had `LLM_PROVIDER=openai`, the normalizer resolved to `gpt-5-nano` for Anthropic API calls (404 error). Root cause: `normalize_with_llm()` did not pass `provider` to `get_resolved_config()`.
+- **Missing provider/analysis_mode threading**: `graph.py` (clarification), `interface.py` (improvement suggestions, parsed document normalization) all called `get_chat_model()` without `provider` or `analysis_mode`, ignoring user's UI selections. All call sites now thread these through.
+- **Stale defaults**: Updated default models in normalizer from `gpt-4o`/`claude-sonnet-4` to `gpt-5-nano`/`claude-haiku-4-5-20251001` to match `model_presets.py`.
+- **`.env` cleanup**: Updated comments to reference `model_presets.py`, corrected task names (`explanation`, `analysis` not `summary`, `framework`), corrected example model names.
+
+---
+
 ## 2026-02-06
 
 ### FIX: Type annotation for `get_llm_provider()` return type
