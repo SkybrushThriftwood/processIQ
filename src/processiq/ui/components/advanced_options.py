@@ -21,6 +21,7 @@ from processiq.models import (
     Industry,
     Priority,
     RegulatoryEnvironment,
+    RevenueRange,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,17 @@ REGULATORY_LABELS = {
     RegulatoryEnvironment.MODERATE: "Moderate",
     RegulatoryEnvironment.STRICT: "Strict",
     RegulatoryEnvironment.HIGHLY_REGULATED: "Highly Regulated",
+}
+
+REVENUE_LABELS = {
+    RevenueRange.UNDER_100K: "Under $100K",
+    RevenueRange.FROM_100K_TO_500K: "$100K - $500K",
+    RevenueRange.FROM_500K_TO_1M: "$500K - $1M",
+    RevenueRange.FROM_1M_TO_5M: "$1M - $5M",
+    RevenueRange.FROM_5M_TO_20M: "$5M - $20M",
+    RevenueRange.FROM_20M_TO_100M: "$20M - $100M",
+    RevenueRange.OVER_100M: "Over $100M",
+    RevenueRange.PREFER_NOT_TO_SAY: "Prefer not to say",
 }
 
 # Analysis mode options with user-friendly labels and descriptions
@@ -243,8 +255,8 @@ def _render_context_compact(profile: BusinessProfile | None) -> BusinessProfile:
     """Render business context in a compact sidebar format."""
     # Industry
     industry_options = list(INDUSTRY_LABELS.keys())
-    current_industry = 0
-    if profile:
+    current_industry: int | None = None  # Placeholder: "Select..."
+    if profile and profile.industry is not None:
         with contextlib.suppress(ValueError):
             current_industry = industry_options.index(profile.industry)
 
@@ -253,6 +265,7 @@ def _render_context_compact(profile: BusinessProfile | None) -> BusinessProfile:
         options=industry_options,
         format_func=lambda x: INDUSTRY_LABELS[x],
         index=current_industry,
+        placeholder="Select...",
         key="adv_industry",
     )
 
@@ -268,8 +281,8 @@ def _render_context_compact(profile: BusinessProfile | None) -> BusinessProfile:
 
     # Company size
     size_options = list(COMPANY_SIZE_LABELS.keys())
-    current_size = 0
-    if profile:
+    current_size: int | None = None  # Placeholder: "Select..."
+    if profile and profile.company_size is not None:
         with contextlib.suppress(ValueError):
             current_size = size_options.index(profile.company_size)
 
@@ -278,7 +291,26 @@ def _render_context_compact(profile: BusinessProfile | None) -> BusinessProfile:
         options=size_options,
         format_func=lambda x: COMPANY_SIZE_LABELS[x],
         index=current_size,
+        placeholder="Select...",
         key="adv_size",
+    )
+
+    # Annual revenue range
+    revenue_options = list(REVENUE_LABELS.keys())
+    current_revenue = revenue_options.index(RevenueRange.PREFER_NOT_TO_SAY)
+    if profile:
+        with contextlib.suppress(ValueError):
+            current_revenue = revenue_options.index(
+                getattr(profile, "annual_revenue", RevenueRange.PREFER_NOT_TO_SAY)
+            )
+
+    annual_revenue = st.selectbox(
+        "Annual Revenue",
+        options=revenue_options,
+        format_func=lambda x: REVENUE_LABELS[x],
+        index=current_revenue,
+        key="adv_revenue",
+        help="Helps calibrate recommendation costs to your business scale",
     )
 
     # Regulatory
@@ -294,17 +326,29 @@ def _render_context_compact(profile: BusinessProfile | None) -> BusinessProfile:
         format_func=lambda x: REGULATORY_LABELS[x],
         index=current_reg,
         key="adv_regulatory",
+        help="How strictly your industry is regulated. Affects compliance-related recommendations.",
+    )
+
+    # Business notes (free text)
+    notes = st.text_area(
+        "About Your Business",
+        value=profile.notes if profile else "",
+        placeholder="Anything that helps us understand your situation: products, team size, current tools, recent changes...",
+        height=100,
+        key="adv_notes",
+        help="This context helps generate recommendations specific to your business",
     )
 
     return BusinessProfile(
         industry=industry,
         custom_industry=custom_industry,
         company_size=company_size,
+        annual_revenue=annual_revenue,
         regulatory_environment=regulatory,
         preferred_frameworks=profile.preferred_frameworks if profile else [],
         previous_improvements=profile.previous_improvements if profile else [],
         rejected_approaches=profile.rejected_approaches if profile else [],
-        notes=profile.notes if profile else "",
+        notes=notes,
     )
 
 

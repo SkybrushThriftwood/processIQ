@@ -9,7 +9,6 @@ Architecture:
 - ROI estimates come from LLM recommendations (contextual, not formulaic)
 """
 
-import json
 import logging
 from typing import Any
 
@@ -139,10 +138,8 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
     )
 
     # Build context for LLM
-    industry = (
-        profile.custom_industry or profile.industry.value
-        if profile and profile.industry
-        else None
+    business_context = (
+        _format_business_context_for_llm(profile) if profile else None
     )
     constraints_summary = (
         _format_constraints_for_llm(constraints) if constraints else None
@@ -153,7 +150,7 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
     llm_provider = state.get("llm_provider")
     insight = _run_llm_analysis(
         metrics_text=metrics_text,
-        industry=industry,
+        business_context=business_context,
         constraints_summary=constraints_summary,
         profile=profile,
         analysis_mode=analysis_mode,
@@ -230,16 +227,20 @@ def finalize_analysis_node(state: AgentState) -> dict[str, Any]:
 
 def _run_llm_analysis(
     metrics_text: str,
-    industry: str | None = None,
+    business_context: str | None = None,
     constraints_summary: str | None = None,
     profile: BusinessProfile | None = None,
     analysis_mode: str | None = None,
     llm_provider: str | None = None,
 ) -> AnalysisInsight | None:
-    """Run LLM-based process analysis.
+    """Run LLM-based process analysis using structured output.
+
+    Uses LangChain's with_structured_output() for guaranteed schema compliance.
+    The LLM returns an AnalysisInsight directly via tool calling -- no manual
+    JSON parsing needed.
 
     Returns AnalysisInsight on success, None on failure.
-    Retries once if the LLM returns an empty response.
+    Retries once on failure.
     """
     if not settings.llm_explanations_enabled:
         logger.debug("LLM explanations disabled, skipping LLM analysis")
@@ -256,10 +257,12 @@ def _run_llm_analysis(
             provider=llm_provider,
         )
 
+        structured_model = model.with_structured_output(AnalysisInsight)
+
         system_msg = get_system_prompt(profile=profile)
         user_msg = get_analysis_prompt(
             metrics_text=metrics_text,
-            industry=industry,
+            business_context=business_context,
             constraints_summary=constraints_summary,
         )
 
@@ -268,41 +271,33 @@ def _run_llm_analysis(
             HumanMessage(content=user_msg),
         ]
 
-        # Try up to 2 times (retry once on empty response)
+        # Try up to 2 times (retry once on failure)
         for attempt in range(2):
             logger.debug(
                 "Calling LLM for process analysis (attempt %d)...", attempt + 1
             )
 
-            response = model.invoke(messages)
-
-            raw_content = (
-                response.content if hasattr(response, "content") else str(response)
-            )
-            content_str = (
-                raw_content if isinstance(raw_content, str) else str(raw_content)
-            )
-
-            if not content_str or not content_str.strip():
+            try:
+                result = structured_model.invoke(messages)
+                insight: AnalysisInsight | None = (
+                    result if isinstance(result, AnalysisInsight) else None
+                )
+            except Exception as e:
                 logger.warning(
-                    "Empty LLM response on attempt %d. Response object: %s",
-                    attempt + 1,
-                    type(response).__name__,
+                    "Structured output failed on attempt %d: %s", attempt + 1, e
                 )
                 if attempt == 0:
-                    continue  # Retry once
+                    continue
                 return None
 
-            insight = _parse_analysis_response(content_str)
+            if insight is None:
+                logger.warning("LLM returned None on attempt %d", attempt + 1)
+                if attempt == 0:
+                    continue
+                return None
 
-            if insight:
-                logger.info("LLM analysis parsed successfully")
-                return insight
-
-            logger.warning(
-                "Failed to parse LLM analysis response on attempt %d", attempt + 1
-            )
-            return None  # Don't retry parse failures — same response would fail again
+            logger.info("LLM analysis parsed successfully via structured output")
+            return insight
 
         return None
 
@@ -311,59 +306,58 @@ def _run_llm_analysis(
         return None
 
 
-def _parse_analysis_response(content: str) -> AnalysisInsight | None:
-    """Parse LLM response into AnalysisInsight model.
+def _format_business_context_for_llm(profile: BusinessProfile) -> str:
+    """Format the full business profile as readable context for LLM."""
+    from processiq.models.memory import RevenueRange
 
-    Handles JSON extraction from markdown code blocks if present.
-    """
-    try:
-        logger.debug("LLM response length: %d chars", len(content) if content else 0)
+    parts = []
 
-        if not content or not content.strip():
-            logger.warning("Empty LLM response")
-            return None
+    # Industry
+    if profile.industry is not None:
+        industry_str = profile.custom_industry or profile.industry.value
+        parts.append(f"Industry: {industry_str}")
 
-        # Extract JSON from markdown code blocks if present
-        json_str = content
-        if "```json" in content:
-            start = content.find("```json") + 7
-            end = content.find("```", start)
-            if end > start:
-                json_str = content[start:end].strip()
-                logger.debug("Extracted JSON from ```json block")
-        elif "```" in content:
-            start = content.find("```") + 3
-            end = content.find("```", start)
-            if end > start:
-                json_str = content[start:end].strip()
-                logger.debug("Extracted JSON from ``` block")
-
-        # Try to find JSON object if not in code block
-        if not json_str.strip().startswith("{"):
-            first_brace = content.find("{")
-            last_brace = content.rfind("}")
-            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                json_str = content[first_brace : last_brace + 1]
-                logger.debug("Extracted JSON by finding braces")
-
-        if not json_str.strip().startswith("{"):
-            logger.warning(
-                "No JSON object found in response. Preview: %s...", content[:200]
-            )
-            return None
-
-        data = json.loads(json_str)
-        return AnalysisInsight(**data)
-
-    except json.JSONDecodeError as e:
-        logger.warning("JSON decode error: %s", e)
-        logger.debug(
-            "Failed JSON (first 300 chars): %s", content[:300] if content else "(empty)"
+    # Company size
+    if profile.company_size is not None:
+        size_labels = {
+            "startup": "Startup (under 50 employees)",
+            "small": "Small business (50-200 employees)",
+            "mid_market": "Mid-market company (200-1000 employees)",
+            "enterprise": "Enterprise (over 1000 employees)",
+        }
+        parts.append(
+            f"Company size: {size_labels.get(profile.company_size.value, profile.company_size.value)}"
         )
-        return None
-    except Exception as e:
-        logger.warning("Error parsing analysis response: %s", e)
-        return None
+
+    # Revenue range (only if provided)
+    if profile.annual_revenue != RevenueRange.PREFER_NOT_TO_SAY:
+        revenue_labels = {
+            "under_100k": "Under $100K/year",
+            "100k_to_500k": "$100K - $500K/year",
+            "500k_to_1m": "$500K - $1M/year",
+            "1m_to_5m": "$1M - $5M/year",
+            "5m_to_20m": "$5M - $20M/year",
+            "20m_to_100m": "$20M - $100M/year",
+            "over_100m": "Over $100M/year",
+        }
+        parts.append(
+            f"Annual revenue: {revenue_labels.get(profile.annual_revenue.value, profile.annual_revenue.value)}"
+        )
+
+    # Regulatory environment
+    parts.append(f"Regulatory environment: {profile.regulatory_environment.value}")
+
+    # Rejected approaches
+    if profile.rejected_approaches:
+        parts.append(
+            f"Previously rejected approaches (DO NOT suggest): {', '.join(profile.rejected_approaches)}"
+        )
+
+    # Free-text notes (most important for context)
+    if profile.notes and profile.notes.strip():
+        parts.append(f"\nAdditional context from the user:\n{profile.notes.strip()}")
+
+    return "\n".join(parts)
 
 
 def _format_constraints_for_llm(constraints: Constraints) -> str:

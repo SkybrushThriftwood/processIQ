@@ -71,11 +71,20 @@ A weighted composite of:
 
 ## Business Context
 
-- Industry: {{ profile.custom_industry if profile.custom_industry else profile.industry.value }}
-- Company Size: {{ profile.company_size.value }}
+{% if profile.industry or profile.custom_industry %}- Industry: {{ profile.custom_industry if profile.custom_industry else profile.industry.value }}
+{% endif %}{% if profile.company_size %}- Company Size: {{ profile.company_size.value }}
+{% endif %}
+{% if profile.annual_revenue and profile.annual_revenue.value != 'prefer_not_to_say' %}
+- Annual Revenue: {{ profile.annual_revenue.value }}
+{% endif %}
 - Regulatory Environment: {{ profile.regulatory_environment.value }}
 {% if profile.rejected_approaches %}
 - Previously Rejected Approaches: {{ profile.rejected_approaches | join(', ') }}
   DO NOT suggest these approaches.
 {% endif %}
+{% if profile.notes %}
+- Additional Context: {{ profile.notes }}
+{% endif %}
+
+Calibrate all cost estimates and tool recommendations to this business size and scale.
 {% endif %}

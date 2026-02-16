@@ -46,6 +46,8 @@ data/*.xlsx
 !data/sample_*.csv
 !data/sample_*.json
 docs/private/
+docs/PRESENTATION_GUIDE.md
+docs/PRESENTATION_GUIDE_DE.md
 
 # ChromaDB local storage
 .chroma/

@@ -33,6 +33,7 @@ from processiq.ui.state import (
     get_business_profile,
     get_chat_state,
     get_constraints,
+    get_file_upload_key,
     get_llm_provider,
     get_messages,
     get_process_data,
@@ -140,9 +141,15 @@ def render_chat_area() -> None:
 
     # Show confirm buttons if in confirming state
     if current_state == ChatState.CONFIRMING and get_process_data():
+        process_data = get_process_data()
         show_estimate = has_process_data_gaps()
+        # Disable analysis if all steps have zero timing (no useful data to analyze)
+        all_missing_time = all(
+            s.average_time_hours == 0 for s in process_data.steps
+        )
         confirmed, wants_estimate = render_confirm_buttons(
-            show_estimate=show_estimate,
+            show_estimate=show_estimate or all_missing_time,
+            disable_confirm=all_missing_time,
         )
         if confirmed:
             handle_confirm_button()
@@ -152,7 +159,8 @@ def render_chat_area() -> None:
             st.rerun()
 
     # Show results display if we have analysis (prefer insight over legacy result)
-    if current_state == ChatState.RESULTS and (
+    # Keep showing results in CONTINUING state so they don't vanish on follow-up
+    if current_state in (ChatState.RESULTS, ChatState.CONTINUING) and (
         get_analysis_insight() or get_analysis_result()
     ):
         st.divider()
@@ -243,25 +251,30 @@ def render_input_area() -> None:
     if current_state == ChatState.ANALYZING or is_input_pending():
         return
 
-    # File upload
-    col1, col2 = st.columns([4, 1])
+    # File upload row: uploader + send button
+    upload_col, send_col = st.columns([5, 1])
 
-    with col1:
-        user_input = render_chat_input(
-            placeholder=_get_input_placeholder(current_state),
-            key="chat_input",
-        )
+    with upload_col:
+        uploaded_file = render_file_uploader(key=get_file_upload_key())
 
-    with col2:
-        uploaded_file = render_file_uploader(key="file_upload")
+    with send_col:
+        if uploaded_file:
+            send_clicked = st.button("Send File", type="primary", key="send_file_btn")
+        else:
+            send_clicked = False
 
-    # Handle inputs
-    if user_input:
-        handle_user_input(user_input)
+    # Process file only when Send button is clicked
+    if send_clicked and uploaded_file and handle_file_upload(uploaded_file):
         st.rerun()
 
-    # handle_file_upload returns True if file was processed, False if skipped
-    if uploaded_file and handle_file_upload(uploaded_file):
+    # Chat input
+    user_input = render_chat_input(
+        placeholder=_get_input_placeholder(current_state),
+        key="chat_input",
+    )
+
+    if user_input:
+        handle_user_input(user_input)
         st.rerun()
 
 

@@ -216,6 +216,17 @@ def _render_recommendation_compact(rec: Recommendation) -> None:
     if rec.expected_benefit:
         st.markdown(f"Expected benefit: {rec.expected_benefit}")
 
+    # Progressive disclosure: plain explanation (Layer 2)
+    if rec.plain_explanation:
+        with st.expander("What this means in practice", expanded=False):
+            st.markdown(rec.plain_explanation)
+
+    # Progressive disclosure: concrete next steps (Layer 3)
+    if rec.concrete_next_steps:
+        with st.expander("How to get started", expanded=False):
+            for i, step in enumerate(rec.concrete_next_steps, 1):
+                st.markdown(f"{i}. {step}")
+
     # Trade-offs / risks
     if rec.risks:
         with st.expander("Trade-offs and risks", expanded=False):
@@ -237,6 +248,17 @@ def _render_standalone_recommendation(rec: Recommendation, index: int) -> None:
 
     if rec.expected_benefit:
         st.markdown(f"Expected benefit: {rec.expected_benefit}")
+
+    # Progressive disclosure: plain explanation (Layer 2)
+    if rec.plain_explanation:
+        with st.expander("What this means in practice", expanded=False):
+            st.markdown(rec.plain_explanation)
+
+    # Progressive disclosure: concrete next steps (Layer 3)
+    if rec.concrete_next_steps:
+        with st.expander("How to get started", expanded=False):
+            for i, step in enumerate(rec.concrete_next_steps, 1):
+                st.markdown(f"{i}. {step}")
 
     if rec.risks:
         with st.expander("Trade-offs", expanded=False):

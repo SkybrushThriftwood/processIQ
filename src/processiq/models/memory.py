@@ -28,6 +28,19 @@ class CompanySize(str, Enum):
     ENTERPRISE = "enterprise"  # > 1000 employees
 
 
+class RevenueRange(str, Enum):
+    """Annual revenue range for calibrating recommendation costs."""
+
+    UNDER_100K = "under_100k"  # < $100K
+    FROM_100K_TO_500K = "100k_to_500k"  # $100K - $500K
+    FROM_500K_TO_1M = "500k_to_1m"  # $500K - $1M
+    FROM_1M_TO_5M = "1m_to_5m"  # $1M - $5M
+    FROM_5M_TO_20M = "5m_to_20m"  # $5M - $20M
+    FROM_20M_TO_100M = "20m_to_100m"  # $20M - $100M
+    OVER_100M = "over_100m"  # > $100M
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"
+
+
 class RegulatoryEnvironment(str, Enum):
     """Regulatory strictness level."""
 
@@ -44,11 +57,19 @@ class BusinessProfile(BaseModel):
     Phase 2: Persisted and updated across sessions.
     """
 
-    industry: Industry = Field(..., description="Industry classification")
+    industry: Industry | None = Field(
+        default=None, description="Industry classification (None = not yet specified)"
+    )
     custom_industry: str = Field(
         default="", description="User-specified industry when 'Other' is selected"
     )
-    company_size: CompanySize = Field(..., description="Company size category")
+    company_size: CompanySize | None = Field(
+        default=None, description="Company size category (None = not yet specified)"
+    )
+    annual_revenue: RevenueRange = Field(
+        default=RevenueRange.PREFER_NOT_TO_SAY,
+        description="Annual revenue range for calibrating recommendation costs",
+    )
     regulatory_environment: RegulatoryEnvironment = Field(
         default=RegulatoryEnvironment.MODERATE, description="Regulatory strictness"
     )

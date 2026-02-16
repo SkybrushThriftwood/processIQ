@@ -13,6 +13,7 @@ Available templates:
     - analyze: LLM-based process analysis
     - clarification: Generate questions for missing data
     - improvement_suggestions: Post-extraction data quality hints
+    - followup: Answer follow-up questions about analysis results
 """
 
 import logging
@@ -167,7 +168,7 @@ def get_improvement_suggestions_prompt(
 
 def get_analysis_prompt(
     metrics_text: str,
-    industry: str | None = None,
+    business_context: str | None = None,
     constraints_summary: str | None = None,
     user_concerns: str | None = None,
 ) -> str:
@@ -178,7 +179,7 @@ def get_analysis_prompt(
 
     Args:
         metrics_text: Pre-calculated metrics formatted by format_metrics_for_llm().
-        industry: Optional industry context for better recommendations.
+        business_context: Optional formatted business context (industry, size, revenue, notes).
         constraints_summary: Optional summary of active constraints.
         user_concerns: Optional user-stated concerns to address.
 
@@ -188,7 +189,36 @@ def get_analysis_prompt(
     return render_prompt(
         "analyze",
         metrics_text=metrics_text,
-        industry=industry,
+        business_context=business_context,
         constraints_summary=constraints_summary,
         user_concerns=user_concerns,
+    )
+
+
+def get_followup_prompt(
+    insight: Any,
+    user_question: str,
+    history: list[dict[str, str]] | None = None,
+    business_context: str | None = None,
+    constraints_summary: str | None = None,
+) -> str:
+    """Get prompt for answering follow-up questions about analysis results.
+
+    Args:
+        insight: The AnalysisInsight object from the completed analysis.
+        user_question: The user's follow-up question.
+        history: Recent chat history as list of {"role": ..., "content": ...} dicts.
+        business_context: Optional formatted business context.
+        constraints_summary: Optional summary of active constraints.
+
+    Returns:
+        Rendered prompt string.
+    """
+    return render_prompt(
+        "followup",
+        insight=insight,
+        user_question=user_question,
+        history=history or [],
+        business_context=business_context,
+        constraints_summary=constraints_summary,
     )

@@ -29,6 +29,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Cached Instructor-wrapped clients (stateless, safe to reuse)
+_anthropic_client: instructor.Instructor | None = None
+_openai_client: instructor.Instructor | None = None
+
 
 class ExtractedStep(BaseModel):
     """A process step extracted by the LLM."""
@@ -122,7 +126,11 @@ class ExtractionResponse(BaseModel):
 
 
 def _get_anthropic_client() -> instructor.Instructor:
-    """Get Instructor-wrapped Anthropic client."""
+    """Get cached Instructor-wrapped Anthropic client."""
+    global _anthropic_client
+    if _anthropic_client is not None:
+        return _anthropic_client
+
     api_key = settings.anthropic_api_key.get_secret_value()
     if not api_key:
         raise ExtractionError(
@@ -131,11 +139,16 @@ def _get_anthropic_client() -> instructor.Instructor:
             user_message="LLM extraction requires an API key. Please configure ANTHROPIC_API_KEY.",
         )
     client = Anthropic(api_key=api_key)
-    return instructor.from_anthropic(client)
+    _anthropic_client = instructor.from_anthropic(client)
+    return _anthropic_client
 
 
 def _get_openai_client() -> instructor.Instructor:
-    """Get Instructor-wrapped OpenAI client."""
+    """Get cached Instructor-wrapped OpenAI client."""
+    global _openai_client
+    if _openai_client is not None:
+        return _openai_client
+
     api_key = settings.openai_api_key.get_secret_value()
     if not api_key:
         raise ExtractionError(
@@ -144,14 +157,15 @@ def _get_openai_client() -> instructor.Instructor:
             user_message="LLM extraction requires an API key. Please configure OPENAI_API_KEY.",
         )
     client = OpenAI(api_key=api_key)
-    return instructor.from_openai(client)
+    _openai_client = instructor.from_openai(client)
+    return _openai_client
 
 
 def _extract_with_anthropic(
     content: str,
     additional_context: str = "",
     conversation_context: str = "",
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-haiku-4-5-20251001",
 ) -> ExtractionResponse:
     """Extract process data using Anthropic Claude.
 
@@ -195,7 +209,7 @@ def _extract_with_openai(
     content: str,
     additional_context: str = "",
     conversation_context: str = "",
-    model: str = "gpt-4o",
+    model: str = "gpt-5-nano",
 ) -> ExtractionResponse:
     """Extract process data using OpenAI GPT.
 
@@ -206,6 +220,8 @@ def _extract_with_openai(
     Uses Instructor's built-in retry mechanism which passes validation errors
     back to the LLM for self-correction (better than blind retries).
     """
+    from processiq.llm import is_restricted_openai_model
+
     client = _get_openai_client()
 
     prompt = get_extraction_prompt(
@@ -214,16 +230,29 @@ def _extract_with_openai(
         conversation_context=conversation_context,
     )
 
-    logger.debug("Extracting with OpenAI model: %s (temperature=0)", model)
-
-    result = client.chat.completions.create(
-        model=model,
-        max_tokens=4096,
-        temperature=0,  # Maximize schema adherence for extraction
-        max_retries=3,  # Instructor retries with validation feedback
-        messages=[{"role": "user", "content": prompt}],
-        response_model=ExtractionResponse,
+    restricted = is_restricted_openai_model(model)
+    temperature = 1.0 if restricted else 0
+    logger.debug(
+        "Extracting with OpenAI model: %s (temperature=%s, restricted=%s)",
+        model,
+        temperature,
+        restricted,
     )
+
+    # GPT-5/o-series: max_completion_tokens only, no temperature override
+    create_kwargs: dict = {
+        "model": model,
+        "max_retries": 3,
+        "messages": [{"role": "user", "content": prompt}],
+        "response_model": ExtractionResponse,
+    }
+    if restricted:
+        create_kwargs["max_completion_tokens"] = 4096
+    else:
+        create_kwargs["max_tokens"] = 4096
+        create_kwargs["temperature"] = 0
+
+    result = client.chat.completions.create(**create_kwargs)
 
     if result.response_type == "extracted" and result.extraction:
         logger.info("Extracted %d steps with OpenAI", len(result.extraction.steps))
@@ -314,7 +343,7 @@ def normalize_with_llm(
     """
     # Get task-specific config (applies analysis mode and task overrides to global defaults)
     resolved_provider, resolved_model, _ = settings.get_resolved_config(
-        task=TASK_EXTRACTION, analysis_mode=analysis_mode
+        task=TASK_EXTRACTION, analysis_mode=analysis_mode, provider=provider
     )
 
     # Apply explicit overrides

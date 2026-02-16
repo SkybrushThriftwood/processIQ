@@ -88,6 +88,18 @@ class Recommendation(BaseModel):
         description="What needs to be true for this to work",
     )
 
+    # Progressive disclosure fields (Layer 2 & 3)
+    plain_explanation: str = Field(
+        default="",
+        description="What this means in simple, non-technical terms. "
+        "Include realistic cost context for the business size.",
+    )
+    concrete_next_steps: list[str] = Field(
+        default_factory=list,
+        description="2-4 specific actions to start implementing this, "
+        "ordered chronologically. First step should be doable this week.",
+    )
+
 
 class NotAProblem(BaseModel):
     """A step that looks problematic but isn't.

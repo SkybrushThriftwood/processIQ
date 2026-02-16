@@ -16,6 +16,51 @@ from processiq.models import ProcessData
 
 logger = logging.getLogger(__name__)
 
+# Pre-compiled regex patterns for step type inference.
+# Compiled once at import time instead of per-call.
+_REVIEW_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\breview", r"\bapproval\b", r"\bapprove", r"\bcheck\b",
+        r"\bvalidat", r"\bverif", r"\binspect", r"\bqc\b", r"\bqa\b",
+    ]
+]
+_EXTERNAL_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\bclient\b", r"\bcustomer\b", r"\bvendor\b", r"\bexternal\b",
+        r"\bfeedback\b", r"\bhappy\b",
+    ]
+]
+_HANDOFF_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\bsend\b", r"\bsubmit\b", r"\bshare\b", r"\btransfer\b",
+        r"\bforward\b", r"\bdeliver\b", r"\bhandoff\b", r"\bhand off\b",
+    ]
+]
+_CREATIVE_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\bdesign\b", r"\bcreate\b", r"\bdevelop\b", r"\bwrite\b",
+        r"\bbuild\b", r"\bsolution\b", r"\bwork on\b", r"\bimplement\b",
+    ]
+]
+_ADMIN_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\binvoice\b", r"\bdocument\b", r"\brecord\b",
+        r"\bfile\b", r"\blog\b", r"\breport\b",
+    ]
+]
+_PROCESSING_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\bprocess\b", r"\bprepare\b", r"\banalyze\b",
+        r"\bcollect\b", r"\bgather\b", r"\btask\b",
+    ]
+]
+
 
 class StepType(str, Enum):
     """Inferred step type based on name/characteristics.
@@ -252,7 +297,11 @@ def _get_transitive(
     direct: dict[str, list[str]],
     visited: set[str],
 ) -> list[str]:
-    """Get all downstream steps recursively."""
+    """Get all downstream steps recursively.
+
+    Uses shared visited set (not copied) to correctly handle
+    reconvergent paths and prevent exponential blowup.
+    """
     if step_name in visited:
         return []
     visited.add(step_name)
@@ -261,7 +310,7 @@ def _get_transitive(
     for child in direct.get(step_name, []):
         if child not in result:
             result.append(child)
-        for grandchild in _get_transitive(child, direct, visited.copy()):
+        for grandchild in _get_transitive(child, direct, visited):
             if grandchild not in result:
                 result.append(grandchild)
 
@@ -273,7 +322,11 @@ def _get_transitive_upstream(
     direct: dict[str, list[str]],
     visited: set[str],
 ) -> list[str]:
-    """Get all upstream steps recursively."""
+    """Get all upstream steps recursively.
+
+    Uses shared visited set (not copied) to correctly handle
+    reconvergent paths and prevent exponential blowup.
+    """
     if step_name in visited:
         return []
     visited.add(step_name)
@@ -282,7 +335,7 @@ def _get_transitive_upstream(
     for parent in direct.get(step_name, []):
         if parent not in result:
             result.append(parent)
-        for grandparent in _get_transitive_upstream(parent, direct, visited.copy()):
+        for grandparent in _get_transitive_upstream(parent, direct, visited):
             if grandparent not in result:
                 result.append(grandparent)
 
@@ -290,96 +343,36 @@ def _get_transitive_upstream(
 
 
 def _infer_step_type(step_name: str) -> StepType:
-    """Infer step type from name using keyword matching.
+    """Infer step type from name using pre-compiled regex patterns.
 
     This is a HINT for the LLM, not a definitive classification.
     The LLM should use this as context but can override.
     """
     name_lower = step_name.lower()
 
-    # Review/approval patterns (check these FIRST - highest priority)
-    review_patterns = [
-        r"\breview",
-        r"\bapproval\b",
-        r"\bapprove",
-        r"\bcheck\b",
-        r"\bvalidat",
-        r"\bverif",
-        r"\binspect",
-        r"\bqc\b",
-        r"\bqa\b",
-    ]
-    for pattern in review_patterns:
-        if re.search(pattern, name_lower):
+    # Check in priority order
+    for pattern in _REVIEW_PATTERNS:
+        if pattern.search(name_lower):
             return StepType.REVIEW
 
-    # External party patterns
-    external_patterns = [
-        r"\bclient\b",
-        r"\bcustomer\b",
-        r"\bvendor\b",
-        r"\bexternal\b",
-        r"\bfeedback\b",
-        r"\bhappy\b",  # "Client happy" type steps
-    ]
-    for pattern in external_patterns:
-        if re.search(pattern, name_lower):
+    for pattern in _EXTERNAL_PATTERNS:
+        if pattern.search(name_lower):
             return StepType.EXTERNAL
 
-    # Handoff patterns
-    handoff_patterns = [
-        r"\bsend\b",
-        r"\bsubmit\b",
-        r"\bshare\b",
-        r"\btransfer\b",
-        r"\bforward\b",
-        r"\bdeliver\b",
-        r"\bhandoff\b",
-        r"\bhand off\b",
-    ]
-    for pattern in handoff_patterns:
-        if re.search(pattern, name_lower):
+    for pattern in _HANDOFF_PATTERNS:
+        if pattern.search(name_lower):
             return StepType.HANDOFF
 
-    # Creative work patterns
-    creative_patterns = [
-        r"\bdesign\b",
-        r"\bcreate\b",
-        r"\bdevelop\b",
-        r"\bwrite\b",
-        r"\bbuild\b",
-        r"\bsolution\b",
-        r"\bwork on\b",
-        r"\bimplement\b",
-    ]
-    for pattern in creative_patterns:
-        if re.search(pattern, name_lower):
+    for pattern in _CREATIVE_PATTERNS:
+        if pattern.search(name_lower):
             return StepType.CREATIVE
 
-    # Administrative patterns
-    admin_patterns = [
-        r"\binvoice\b",
-        r"\bdocument\b",
-        r"\brecord\b",
-        r"\bfile\b",
-        r"\blog\b",
-        r"\breport\b",
-    ]
-    for pattern in admin_patterns:
-        if re.search(pattern, name_lower):
+    for pattern in _ADMIN_PATTERNS:
+        if pattern.search(name_lower):
             return StepType.ADMINISTRATIVE
 
-    # Processing (generic work)
-    processing_patterns = [
-        r"\bprocess\b",
-        r"\bprepare\b",
-        r"\banalyze\b",
-        r"\bcollect\b",
-        r"\bgather\b",
-        r"\btask\b",
-    ]
-    for pattern in processing_patterns:
-        if re.search(pattern, name_lower):
+    for pattern in _PROCESSING_PATTERNS:
+        if pattern.search(name_lower):
             return StepType.PROCESSING
 
     return StepType.UNKNOWN

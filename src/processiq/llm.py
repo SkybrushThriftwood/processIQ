@@ -25,6 +25,7 @@ Usage:
 """
 
 import logging
+from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
@@ -32,6 +33,62 @@ from processiq.config import settings
 from processiq.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
+
+
+def extract_text_content(response: Any) -> str:
+    """Extract text content from an LLM response, regardless of format.
+
+    Handles the different ways models return content:
+    - Plain string in response.content (most models)
+    - List of content blocks in response.content (some newer models)
+    - Content in additional_kwargs (reasoning models like o1/o3/gpt-5)
+    """
+    # Try response.content first
+    if hasattr(response, "content"):
+        content = response.content
+
+        # Plain string — most common case
+        if isinstance(content, str) and content.strip():
+            return content
+
+        # List of content blocks (e.g. [{"type": "text", "text": "..."}])
+        if isinstance(content, list):
+            text_parts = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text_parts.append(block.get("text", ""))
+                elif isinstance(block, str):
+                    text_parts.append(block)
+            joined = "\n".join(text_parts).strip()
+            if joined:
+                return joined
+
+    # Reasoning models may put output in additional_kwargs
+    if hasattr(response, "additional_kwargs"):
+        kwargs = response.additional_kwargs
+        # OpenAI reasoning models
+        for key in ("reasoning_content", "content", "output"):
+            if key in kwargs and isinstance(kwargs[key], str) and kwargs[key].strip():
+                logger.info("Extracted content from additional_kwargs['%s']", key)
+                return kwargs[key]
+
+    # Last resort: stringify the whole response
+    fallback = str(response).strip()
+    if fallback:
+        logger.warning("Fell back to str(response) for content extraction")
+        return fallback
+
+    return ""
+
+
+def is_restricted_openai_model(model: str) -> bool:
+    """Check if an OpenAI model has parameter restrictions.
+
+    GPT-5 series and o-series models:
+    - Only support temperature=1 (default)
+    - Require max_completion_tokens instead of max_tokens
+    """
+    return model.startswith(("gpt-5", "o1", "o3"))
 
 
 def get_chat_model(
@@ -130,11 +187,25 @@ def _get_openai_model(model: str, temperature: float) -> BaseChatModel:
             user_message="Please set OPENAI_API_KEY in your environment or .env file.",
         )
 
+    restricted = is_restricted_openai_model(model)
+
+    if restricted and temperature != 1.0:
+        logger.warning(
+            "Model %s does not support temperature=%.1f, using default (1.0)",
+            model,
+            temperature,
+        )
+
+    # Reasoning models (gpt-5, o1, o3) use max_completion_tokens for BOTH
+    # internal reasoning AND output. 4096 is not enough — reasoning alone
+    # can consume the entire budget, leaving zero tokens for actual output.
+    max_tokens = 16384 if restricted else 4096
+
     return ChatOpenAI(
         model=model,
         api_key=api_key,
-        temperature=temperature,
-        max_tokens=4096,  # pyright: ignore[reportCallIssue]
+        temperature=1.0 if restricted else temperature,
+        max_completion_tokens=max_tokens,  # pyright: ignore[reportCallIssue]
     )
 
 
