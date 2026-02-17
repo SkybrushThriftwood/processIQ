@@ -10,6 +10,13 @@ Categories: `DESIGN`, `ARCHITECTURE`, `SCOPE`, `TECH`, `DECISION`
 
 ## 2026-02-17
 
+### DESIGN: Self-Improving Agent via Recommendation Feedback
+
+- Added thumbs up/down feedback buttons on each recommendation in the results display. Thumbs down shows an optional text input for rejection reason.
+- Feedback stored in session state, persists across re-analyses within the same session (cleared on full reset).
+- On re-analysis, feedback history is formatted and injected into `analyze.j2` as a new `feedback_history` section. The LLM is instructed to avoid repeating rejected recommendations and lean toward accepted patterns.
+- Pipeline: `ui/state.py` (storage) -> `handlers.py` (passes to analysis) -> `agent/state.py` -> `nodes.py` (formats text) -> `analyze.j2` (prompt injection).
+
 ### ARCHITECTURE: File Upload Merging
 
 - File uploads now merge with existing process data instead of replacing it. Matching steps (by name, case-insensitive) have their values updated; new steps are appended; existing-only steps are preserved.

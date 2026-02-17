@@ -37,6 +37,7 @@ from processiq.ui.state import (
     get_or_create_thread_id,
     get_pending_input,
     get_process_data,
+    get_recommendation_feedback,
     get_user_id,
     is_analysis_pending,
     is_file_already_processed,
@@ -748,6 +749,7 @@ def execute_pending_analysis() -> bool:
         user_id=get_user_id(),
         analysis_mode=get_analysis_mode(),
         llm_provider=get_llm_provider(),
+        feedback_history=get_recommendation_feedback(),
     )
 
     # Store thread_id from response if updated

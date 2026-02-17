@@ -23,6 +23,15 @@ Your job is to provide INSIGHT, not just restate data. The user already knows th
 {{ user_concerns }}
 {% endif %}
 
+{% if feedback_history %}
+## Previous Feedback on Recommendations
+
+The user has already reviewed previous recommendations and provided feedback.
+**You MUST incorporate this feedback.** Do NOT repeat rejected recommendations unless you have a fundamentally different approach. Lean toward the types of recommendations the user found helpful.
+
+{{ feedback_history }}
+{% endif %}
+
 ---
 
 ## Your Analysis Task

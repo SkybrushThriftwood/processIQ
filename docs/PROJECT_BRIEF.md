@@ -638,6 +638,7 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 - "Estimate Missing" button for step-level gaps
 - Post-analysis follow-up conversation (LLM-driven with full analysis context)
 - Step grouping: alternative steps (either/or) and parallel steps (simultaneous) with computed step numbering
+- Recommendation feedback loop: thumbs up/down per recommendation with optional rejection reason; feedback injected into subsequent analyses so the LLM avoids rejected approaches
 
 ### LLM Flexibility
 

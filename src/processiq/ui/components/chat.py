@@ -696,23 +696,7 @@ def render_file_uploader(
         Uploaded file object or None.
     """
     if accepted_types is None:
-        accepted_types = [
-            "pdf",
-            "docx",
-            "doc",
-            "xlsx",
-            "xls",
-            "csv",
-            "pptx",
-            "ppt",
-            "html",
-            "htm",
-            "png",
-            "jpg",
-            "jpeg",
-            "tiff",
-            "bmp",
-        ]
+        accepted_types = ["csv", "xlsx", "xls"]
 
     return st.file_uploader(
         label,

@@ -52,6 +52,9 @@ class AgentState(TypedDict, total=False):
     analysis_mode: str | None
     llm_provider: str | None
 
+    # User feedback on recommendations (for self-improving analysis)
+    feedback_history: dict
+
 
 # Initial state factory
 def create_initial_state(
@@ -60,6 +63,7 @@ def create_initial_state(
     profile: BusinessProfile | None = None,
     analysis_mode: str | None = None,
     llm_provider: str | None = None,
+    feedback_history: dict | None = None,
 ) -> AgentState:
     """Create initial agent state with required fields."""
     return AgentState(
@@ -78,4 +82,5 @@ def create_initial_state(
         error=None,
         analysis_mode=analysis_mode,
         llm_provider=llm_provider,
+        feedback_history=feedback_history or {},
     )
