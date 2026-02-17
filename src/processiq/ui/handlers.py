@@ -202,7 +202,8 @@ def handle_file_upload(uploaded_file) -> bool:
     # Add status message
     add_message(create_status_message(f"Processing {file_name}..."))
 
-    # Extract from file
+    # Extract from file (pass existing data for smart name matching)
+    existing = get_process_data()
     response = extract_from_file(
         file_bytes=uploaded_file.getvalue(),
         filename=file_name,
@@ -210,10 +211,10 @@ def handle_file_upload(uploaded_file) -> bool:
         constraints=get_constraints(),
         profile=get_business_profile(),
         llm_provider=get_llm_provider(),
+        current_process_data=existing,
     )
 
     # Merge with existing data if present (file complements rather than replaces)
-    existing = get_process_data()
     if existing and response.has_data and response.process_data is not None:
         merged = existing.merge_with(response.process_data)
         response.process_data = merged
@@ -230,6 +231,14 @@ def handle_file_upload(uploaded_file) -> bool:
         )
 
     _handle_extraction_response(response)
+
+    # Clear the file from the uploader widget by incrementing the key counter.
+    # This forces Streamlit to create a new widget on the next rerun.
+    import streamlit as st
+    st.session_state.file_upload_key_counter = (
+        st.session_state.get("file_upload_key_counter", 0) + 1
+    )
+
     return True
 
 
@@ -245,6 +254,9 @@ def handle_estimate_button() -> None:
     fill in missing values using the existing ESTIMATE path in extraction.j2.
     The current process data is passed as conversation context so the LLM
     knows what values already exist.
+
+    After the LLM returns, a guard ensures that user-provided (non-zero)
+    values are never overwritten — only zero/missing fields are updated.
     """
     process_data = get_process_data()
     if not process_data:
@@ -261,11 +273,21 @@ def handle_estimate_button() -> None:
 
     old_snapshot = _step_snapshot(process_data.steps)
 
+    # Remember which fields already had user-provided values
+    original_values: dict[str, dict[str, float]] = {}
+    for step in process_data.steps:
+        original_values[step.step_name] = {
+            "average_time_hours": step.average_time_hours,
+            "cost_per_instance": step.cost_per_instance,
+            "error_rate_pct": step.error_rate_pct,
+        }
+
     add_message(create_status_message("Estimating missing values..."))
 
     response = extract_from_text(
-        user_message="Please estimate all missing values based on typical industry patterns. "
-        "Fill in any missing costs, error rates, and timing data with reasonable estimates.",
+        user_message="Please estimate ONLY the missing values (fields that are 0 or blank). "
+        "Do NOT change any values that are already filled in. "
+        "Fill in missing costs, error rates, and timing with reasonable industry estimates.",
         analysis_mode=get_analysis_mode(),
         current_process_data=process_data,
         ui_messages=get_messages(),
@@ -273,6 +295,10 @@ def handle_estimate_button() -> None:
         profile=get_business_profile(),
         llm_provider=get_llm_provider(),
     )
+
+    # Guard: restore any user-provided values the LLM may have overwritten
+    if response.process_data is not None:
+        _protect_existing_values(response.process_data, original_values)
 
     _handle_extraction_response(response)
 
@@ -286,6 +312,35 @@ def handle_estimate_button() -> None:
                     "You can adjust any values directly in the table, or proceed to analysis."
                 )
             )
+
+
+def _protect_existing_values(
+    new_data: "ProcessData",
+    original_values: dict[str, dict[str, float]],
+) -> None:
+    """Restore user-provided values the LLM may have changed during estimation.
+
+    Only zero/missing fields should be filled by estimation. If a field had a
+    non-zero user value before estimation and the LLM changed it, revert it.
+    """
+    protected_fields = ("average_time_hours", "cost_per_instance", "error_rate_pct")
+
+    for step in new_data.steps:
+        orig = original_values.get(step.step_name)
+        if orig is None:
+            continue
+
+        for field_name in protected_fields:
+            orig_val = orig[field_name]
+            if orig_val != 0 and getattr(step, field_name) != orig_val:
+                logger.warning(
+                    "Estimation changed '%s.%s' from %.2f to %.2f — reverting",
+                    step.step_name,
+                    field_name,
+                    orig_val,
+                    getattr(step, field_name),
+                )
+                setattr(step, field_name, orig_val)
 
 
 def _process_text_input(text: str) -> None:

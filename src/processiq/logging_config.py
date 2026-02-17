@@ -20,26 +20,20 @@ Usage:
 import logging
 import sys
 
-_logging_configured = False
-
-
 def setup_logging(level: str = "INFO") -> None:
     """Configure logging for the entire application.
 
     Safe to call multiple times (Streamlit reruns the script on every
-    interaction). Only attaches handlers on the first call; subsequent
-    calls just update the log level.
+    interaction). Checks for existing handlers rather than using a module-level
+    flag, since Streamlit reruns reset module state and cause handler accumulation.
 
     Args:
         level: Log level string (DEBUG, INFO, WARNING, ERROR).
     """
-    global _logging_configured  # noqa: PLW0603
-
     log_level = getattr(logging, level.upper(), logging.INFO)
     app_logger = logging.getLogger("processiq")
 
-    if not _logging_configured:
-        # First call: set up handler on the "processiq" namespace logger
+    if not app_logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(
             logging.Formatter(
@@ -56,8 +50,6 @@ def setup_logging(level: str = "INFO") -> None:
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("chromadb").setLevel(logging.WARNING)
         logging.getLogger("langchain").setLevel(logging.WARNING)
-
-        _logging_configured = True
 
     # Always update level (allows runtime level changes)
     app_logger.setLevel(log_level)

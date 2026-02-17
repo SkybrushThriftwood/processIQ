@@ -1,5 +1,7 @@
 """Process data models for ProcessIQ."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -28,6 +30,16 @@ class ProcessStep(BaseModel):
     )
     depends_on: list[str] = Field(
         default_factory=list, description="Steps that must complete before this one"
+    )
+    group_id: str | None = Field(
+        default=None,
+        description="Groups related steps together (alternatives or parallel). "
+        "Steps sharing a group_id are either/or choices or happen simultaneously.",
+    )
+    group_type: Literal["alternative", "parallel"] | None = Field(
+        default=None,
+        description="'alternative' = either/or (e.g., phone OR email), "
+        "'parallel' = simultaneous (e.g., invoice paid AND added to tax system).",
     )
 
     @field_validator("depends_on", mode="before")
@@ -129,6 +141,8 @@ class ProcessData(BaseModel):
                     resources_needed=incoming.resources_needed if incoming.resources_needed > 1 else existing.resources_needed,
                     depends_on=incoming.depends_on or existing.depends_on,
                     estimated_fields=estimated,
+                    group_id=existing.group_id or incoming.group_id,
+                    group_type=existing.group_type or incoming.group_type,
                 )
             )
 

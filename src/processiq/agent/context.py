@@ -52,10 +52,10 @@ def serialize_process_data(process_data: ProcessData) -> str:
 
     # Table header
     lines.append(
-        "| # | Step | Time (hrs) | Cost ($) | Error % | Resources | Depends On |"
+        "| # | Step | Time (hrs) | Cost ($) | Error % | Resources | Depends On | Group |"
     )
     lines.append(
-        "|---|------|------------|----------|---------|-----------|------------|"
+        "|---|------|------------|----------|---------|-----------|------------|-------|"
     )
 
     # Table rows (limited to MAX_TABLE_ROWS)
@@ -66,14 +66,17 @@ def serialize_process_data(process_data: ProcessData) -> str:
         error_str = f"{step.error_rate_pct:.1f}" if step.error_rate_pct else "-"
         resources_str = str(step.resources_needed) if step.resources_needed else "-"
         deps_str = ", ".join(step.depends_on) if step.depends_on else "-"
+        group_id = getattr(step, "group_id", None)
+        group_type = getattr(step, "group_type", None)
+        group_str = f"{group_id} ({group_type})" if group_id and group_type else "-"
 
         lines.append(
-            f"| {i} | {step.step_name} | {time_str} | {cost_str} | {error_str} | {resources_str} | {deps_str} |"
+            f"| {i} | {step.step_name} | {time_str} | {cost_str} | {error_str} | {resources_str} | {deps_str} | {group_str} |"
         )
 
     if len(process_data.steps) > MAX_TABLE_ROWS:
         lines.append(
-            f"| ... | ({len(process_data.steps) - MAX_TABLE_ROWS} more steps) | | | | | |"
+            f"| ... | ({len(process_data.steps) - MAX_TABLE_ROWS} more steps) | | | | | | |"
         )
 
     # Totals

@@ -178,7 +178,7 @@ Phase 2 adds Learning Agent characteristics:
 ### Frontend
 - **Streamlit** with chat-first interface (`st.chat_message`, `st.chat_input`)
 - Analysis mode presets (Cost-Optimized / Balanced / Deep Analysis)
-- Expert mode with editable data tables
+- Inline editable data tables (`st.data_editor`)
 
 ### Data Models
 - **Pydantic BaseModel** for domain models (ProcessStep, Constraints, AnalysisInsight)
@@ -278,7 +278,7 @@ processiq/
 │       ├── model_presets.py       # Analysis mode presets
 │       │
 │       ├── models/                # Pydantic domain models
-│       │   ├── process.py         # ProcessStep, ProcessData
+│       │   ├── process.py         # ProcessStep (with group_id/group_type), ProcessData
 │       │   ├── constraints.py     # Constraints, ConflictResult, Priority
 │       │   ├── analysis.py        # AnalysisResult (legacy)
 │       │   ├── insight.py         # AnalysisInsight, Issue, Recommendation, NotAProblem
@@ -304,6 +304,7 @@ processiq/
 │       │   ├── extraction.j2      # Process extraction + interview + edit
 │       │   ├── analyze.j2         # LLM-based process analysis
 │       │   ├── clarification.j2   # Generate clarification questions
+│       │   ├── followup.j2        # Post-analysis follow-up conversation context
 │       │   └── improvement_suggestions.j2  # Post-extraction guidance
 │       │
 │       ├── ingestion/             # Data loading
@@ -328,7 +329,6 @@ processiq/
 │           └── components/
 │               ├── chat.py            # Chat interface, message rendering
 │               ├── advanced_options.py # Sidebar: constraints, context, mode
-│               ├── expert_panel.py     # Editable data table, confidence
 │               ├── results_display.py  # Summary-first analysis display
 │               ├── export_section.py   # Download buttons
 │               ├── privacy_notice.py   # Two-tier privacy explanation
@@ -447,12 +447,9 @@ Users should be able to start immediately without understanding data schemas. Th
 - Captures implicit context ("takes forever" -> user cares about time)
 - Builds trust through conversation before asking for data
 
-### Guided vs Expert Mode
+### Interaction Mode
 
-| Mode | Primary Users | Interface |
-|------|---------------|-----------|
-| **Guided** (default) | Non-technical, first-time users | Pure chat, agent leads conversation |
-| **Expert** | Analysts, repeat users | Two-column: chat left, editable data right |
+All users interact through the chat-first interface. The editable data table is always available inline after extraction — no separate "expert mode" toggle. This removes friction while still giving analysts full control over the data.
 
 ### Input Method Comparison
 
@@ -478,6 +475,14 @@ For power users who want direct control:
 ```
   Advanced Options
   -----------------------------------------------
+  LLM PROVIDER
+  (*) OpenAI   ( ) Anthropic   ( ) Ollama
+
+  ANALYSIS MODE
+  ( ) Cost-Optimized (faster, lower cost)
+  (*) Balanced (recommended)
+  ( ) Deep Analysis (thorough, higher cost)
+
   CONSTRAINTS
   Budget Limit ($): [________]
   [ ] Cannot hire new staff
@@ -487,11 +492,9 @@ For power users who want direct control:
   BUSINESS CONTEXT
   Industry: [Financial Services ▼]
   Company Size: [Mid-Market ▼]
-
-  ANALYSIS MODE
-  ( ) Cost-Optimized (faster, lower cost)
-  (*) Balanced (recommended)
-  ( ) Deep Analysis (thorough, higher cost)
+  Annual Revenue: [Select... ▼]
+  Regulation Level: [Select... ▼]
+  About Your Business: [________________________]
 ```
 
 These fields are optional. The agent infers what it can from conversation and asks when needed.
@@ -624,8 +627,8 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 - Chat interface as primary interaction
 - File drop zone with 14 supported formats
 - Smart interviewer pattern (extract OR clarify, never both)
-- Guided mode (chat-only) and Expert mode (editable data tables)
-- Advanced options sidebar (constraints, business context with revenue range, analysis mode)
+- Inline editable data table always visible after extraction
+- Advanced options sidebar (constraints, business context with revenue range, analysis mode, LLM provider)
 - Business context fields: industry, company size, annual revenue, regulatory level, free-text notes
 - Privacy notice component (two-tier explanation)
 - Summary-first results display (issues linked to recommendations)
@@ -633,6 +636,8 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 - Draft analysis preview after extraction
 - Targeted follow-up questions based on data gaps
 - "Estimate Missing" button for step-level gaps
+- Post-analysis follow-up conversation (LLM-driven with full analysis context)
+- Step grouping: alternative steps (either/or) and parallel steps (simultaneous) with computed step numbering
 
 ### LLM Flexibility
 

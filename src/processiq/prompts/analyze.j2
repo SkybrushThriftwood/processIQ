@@ -64,7 +64,8 @@ The user needs to know what NOT to "optimize away".
 For each recommendation:
 - Tie it to a specific issue you identified
 - Explain what changes would be needed
-- Describe expected benefits (qualitatively - don't invent numbers)
+- Describe expected benefits (qualitative description of what improves)
+- **estimated_roi**: Provide a rough dollar range estimate based on the process data (time saved x cost, error reduction, etc.). Use ranges and label as rough estimates. Example: "~$200-$500/month" or "~$5,000-$15,000/year". Base this on the actual numbers in the data -- don't invent new figures, but multiply what's there (e.g., "saving 1hr/order at $85/order x 50 orders/week = ~$4,250/week"). If you can't estimate meaningfully, say "ROI depends on order volume -- estimate not possible with current data."
 - List the trade-offs and risks
 - Rate implementation difficulty (easy/moderate/complex)
 - **plain_explanation**: Explain what this means as if talking to someone who has never heard the term before. Include what it would realistically cost for a business of this size and context. Use specific tool categories or approaches, not jargon. Example: instead of "implement RPA", say "use a simple workflow tool like Zapier or Microsoft Power Automate to automatically route invoices based on amount -- typically $20-50/month for a small business."
@@ -129,6 +130,7 @@ Problems with this:
       "addresses_issue": "Redundant manager reviews",
       "description": "Combine the two manager review steps into a single more comprehensive review after the solution is implemented. Front-load requirements clarity to reduce need for task-level review.",
       "expected_benefit": "Could save ~1 hour per project and reduce wait time between reviews",
+      "estimated_roi": "~$100-$150/project saved (1hr x $100-$150/hr manager time). At 20 projects/month: ~$2,000-$3,000/month.",
       "risks": ["May catch issues later in process", "Requires clearer upfront requirements"],
       "feasibility": "easy",
       "affected_steps": ["Review tasks by manager", "Manager reviews the solution"],

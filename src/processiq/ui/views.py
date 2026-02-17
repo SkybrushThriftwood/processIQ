@@ -157,13 +157,17 @@ def render_chat_area() -> None:
             handle_estimate_button()
             st.rerun()
 
-    # Show results display if we have analysis (prefer insight over legacy result)
-    # Keep showing results in CONTINUING state so they don't vanish on follow-up
-    if current_state in (ChatState.RESULTS, ChatState.CONTINUING) and get_analysis_insight():
+    # Show results display if we have analysis
+    if current_state == ChatState.RESULTS and get_analysis_insight():
         st.divider()
         render_results()
         st.divider()
         render_export_section()
+    elif current_state == ChatState.CONTINUING and get_analysis_insight():
+        # In follow-up mode, collapse results so the conversation is visible
+        with st.expander("Analysis Results (click to expand)", expanded=False):
+            render_results()
+            render_export_section()
 
     # Handle ANALYZING state
     if current_state == ChatState.ANALYZING:

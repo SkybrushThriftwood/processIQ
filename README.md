@@ -1,193 +1,311 @@
 # ProcessIQ
 
-AI-powered process optimization advisor that analyzes business processes, identifies inefficiencies, and provides actionable recommendations with ROI estimates.
+AI-powered process optimization advisor that understands business context — not just data.
 
-ProcessIQ is a high-CQ (Context Quotient) agent — it understands your business constraints, industry context, and process nuances to provide recommendations that work in your specific situation, not generic advice.
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Agent](https://img.shields.io/badge/agent-LangGraph-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## What It Does
+---
 
-Describe a business process in plain text or upload a file, and ProcessIQ will:
+## Overview
 
-- **Extract** structured process data from natural language or documents (PDF, Excel, Word, images)
-- **Analyze** the process to identify genuine bottlenecks, wasteful patterns, and root causes
-- **Distinguish** between waste and core value work (a 4-hour creative task is not a bottleneck)
-- **Recommend** specific improvements with trade-offs, feasibility, and expected benefits
-- **Explain** recommendations in plain language with realistic costs calibrated to your business size
-- **Calculate** ROI estimates with explicit assumptions and confidence ranges
+ProcessIQ is a high-CQ (Context Quotient) AI agent that analyzes business processes, identifies genuine bottlenecks, and generates constraint-aware recommendations with assumption-driven ROI estimates.
+
+Unlike generic LLM tools, ProcessIQ:
+
+- Distinguishes waste from core value work
+- Respects real-world constraints (budget, hiring freezes, regulation)
+- Makes confidence-driven decisions, asking for clarification when it needs more data
+- Explains assumptions transparently — no false precision
+- Calibrates recommendations to business size (a bakery gets different advice than an enterprise)
+
+---
+
+## Demo
+
+> **Screenshot placeholder — add a screen recording or GIF of the chat interface here**
+>
+> Suggested flow to record:
+> 1. Describe a process in plain text (e.g. "Our invoice approval takes 3 days...")
+> 2. Agent extracts structured steps and shows the data card
+> 3. Click "Confirm & Analyze"
+> 4. Walk through the results: summary, bottleneck, recommendation with progressive disclosure
+
+```
+<!-- Replace this block with your screenshot or GIF -->
+<!-- Example:
+![ProcessIQ Demo](docs/assets/demo.gif)
+-->
+```
+
+---
+
+## Problem Statement
+
+Most process optimization tools either:
+
+- Require structured event logs (enterprise systems)
+- Provide generic LLM suggestions with no constraint awareness
+- Ignore operational reality (budget, headcount, regulations)
+- Present unrealistic ROI precision
+
+ProcessIQ bridges this gap by combining deterministic metric calculation with structured LLM judgment inside a stateful agent architecture.
+
+---
+
+## Why an Agent?
+
+If a system must make judgment calls rather than execute a fixed sequence of steps, an agent architecture is justified.
+
+ProcessIQ requires agentic behavior because it must:
+
+1. Evaluate whether sufficient context exists before proceeding
+2. Decide when to ask clarifying questions instead of guessing
+3. Interpret patterns beyond deterministic metrics (waste vs. core value)
+4. Resolve constraint conflicts (cannot hire + hire 2 people = contradiction)
+5. Branch based on confidence scores
+
+### Agent Type: Utility-Based Agent
+
+ProcessIQ optimizes competing objectives:
+
+- Cost vs. time vs. quality
+- Regulatory constraints
+- User-defined priorities
+
+It evaluates utility (ROI weighted by confidence and constraints) and generates recommendations that maximize value under realistic conditions.
+
+---
+
+## Core Design Principle
+
+**Algorithms calculate facts. The LLM makes judgments.**
+
+| Component | Source | Deterministic |
+|-----------|--------|---------------|
+| Process metrics (% of total time, cycle time) | Algorithm | Yes |
+| ROI calculations (pessimistic/likely/optimistic) | Algorithm | Yes |
+| Confidence scoring (data completeness) | Algorithm | Yes |
+| Waste vs. core value assessment | LLM | No |
+| Root cause reasoning | LLM | No |
+| Recommendation generation | LLM | No |
+
+This separation ensures transparency, auditability, and reliability.
+
+---
 
 ## Architecture
 
+### High-Level Flow
+
 ```mermaid
 flowchart TD
-    classDef input fill:#d6f5d6,stroke:#2d8a2d,stroke-width:2px,color:#1a1a1a
-    classDef llm fill:#fff3cd,stroke:#b8860b,stroke-width:2px,color:#1a1a1a
-    classDef decision fill:#d0e0f7,stroke:#2456b5,stroke-width:2.5px,color:#1a1a1a
-    classDef output fill:#f8d7da,stroke:#c0392b,stroke-width:2px,color:#1a1a1a
+    A[User Input: text or file] --> B{Input Type}
 
-    subgraph Input ["User Input"]
-        TEXT["Text Description"]:::input
-        FILE["File Upload<br>CSV / Excel / PDF / DOCX / Images"]:::input
-    end
+    B -->|Text| C[LLM Extraction via Instructor]
+    B -->|CSV/Excel| D[Pandas Parser]
+    B -->|PDF/DOCX/Image| E[Docling Parser]
 
-    subgraph Extraction ["Data Extraction"]
-        PARSE["Parse<br>(pandas / Docling)"]:::input
-        LLM_EXT["LLM: Extract ProcessData<br>(Instructor + Pydantic)"]:::llm
-        DECIDE{Extract or<br>Clarify?}:::decision
-        CLARIFY["Ask Smart<br>Questions"]:::llm
-        CARD["User Reviews<br>Data Card"]:::input
-    end
+    D --> C
+    E --> C
 
-    subgraph Analysis ["LangGraph Agent"]
-        CTX{Sufficient<br>Context?}:::decision
-        ASK["Request<br>Clarification"]:::llm
-        METRICS["Calculate Process<br>Metrics"]:::input
-        ANALYZE["LLM: Analyze Patterns<br>Waste vs Value<br>Root Causes"]:::llm
-        FINALIZE["Package<br>AnalysisInsight"]:::input
-    end
+    C --> F{Response Type}
 
-    subgraph Results ["Output"]
-        DISPLAY["Summary-First<br>Results Display"]:::output
-        EXPORT["Export<br>CSV / Markdown / Text"]:::output
-    end
+    F -->|Needs Clarification| G[Agent Asks Questions]
+    G --> A
 
-    TEXT --> LLM_EXT
-    FILE --> PARSE --> LLM_EXT
-    LLM_EXT --> DECIDE
-    DECIDE -- "Extracted" --> CARD
-    DECIDE -- "Needs info" --> CLARIFY --> LLM_EXT
-    CARD -- "Confirm" --> CTX
-    CTX -- "Yes" --> METRICS --> ANALYZE --> FINALIZE
-    CTX -- "No" --> ASK --> CTX
-    FINALIZE --> DISPLAY --> EXPORT
+    F -->|Extracted Data| H[User Reviews Data Card]
+
+    H -->|Confirm| I[Calculate Process Metrics]
+    H -->|Edit| H
+    H -->|Estimate Missing| C
+
+    I --> J[LLM Analysis]
+    J --> K[AnalysisInsight]
+    K --> L[Summary-First Results]
+    L --> M[Export Options]
 ```
 
-**Core principle:** Algorithms calculate facts (metrics, percentages, dependencies). The LLM makes judgments (is this waste or value? what patterns are unusual?).
+### LangGraph Agent (4 Nodes)
 
-**Progressive disclosure:** Recommendations are presented in 3 layers -- summary (always visible), plain-language explanation with business-calibrated costs (expandable), and concrete next steps (expandable). Business context (industry, revenue range, company size, free-text notes) is passed to the LLM so recommendations are scaled to the user's actual situation.
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
-- API key for OpenAI or Anthropic
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/processiq.git
-cd processiq
-
-# Install dependencies
-uv sync --group dev
-
-# Copy environment template and add your API keys
-cp .env.example .env
-# Edit .env with your API keys
+```mermaid
+flowchart LR
+    A[check_context] -->|sufficient| B[analyze]
+    A -->|insufficient| C[request_clarification]
+    C -->|user responds| A
+    B --> D[finalize]
 ```
 
-### Run
+| Node | Responsibility |
+|------|----------------|
+| `check_context` | Evaluate data completeness, decide whether to proceed or ask |
+| `request_clarification` | Ask targeted follow-up questions based on data gaps |
+| `analyze` | Calculate process metrics + LLM pattern analysis |
+| `finalize` | Package structured `AnalysisInsight` into final response |
 
-```bash
-uv run streamlit run app.py
-```
+---
 
-The app opens at `http://localhost:8501`.
+## Context Quotient (CQ)
 
-## Configuration
+Agent effectiveness: **Performance = IQ × EQ × CQ**
 
-Copy `.env.example` to `.env` and configure:
+High-CQ means recommendations adapt to the user's specific business reality.
 
-```bash
-# Required: at least one LLM provider
-OPENAI_API_KEY=your-key-here
-ANTHROPIC_API_KEY=your-key-here      # Optional
+| Generic Agent | ProcessIQ |
+|---------------|-----------|
+| "This step is slow" | "This step is slow and blocks 3 downstream tasks" |
+| "Automate this" | "Automate this — but given your no-hiring constraint, here's a software-only option" |
+| "ROI: $50K" | "ROI: $30K–$70K, confidence 62% — missing error rate data for steps 3–5" |
 
-# LLM Settings
-LLM_PROVIDER=openai                   # openai, anthropic, or ollama
-LLM_MODEL=                            # Empty = provider default
-LLM_TEMPERATURE=0.0
+---
 
-# Optional: LangSmith observability
-LANGSMITH_API_KEY=your-key-here
-LANGSMITH_TRACING=true
-```
+## Features
 
-### Analysis Mode Presets
+### Chat-First Interface
+- Describe processes in plain language or upload files
+- Smart interviewer: extracts structured data OR asks clarifying questions — never guesses
+- Inline editable data table after extraction
+- Draft analysis preview before full confirmation
+- Post-analysis follow-up conversation with full context
 
-The sidebar offers three presets that configure per-task model selection:
+### Data Ingestion
+- 14 supported file formats via Docling (PDF, DOCX, PPTX, Excel, HTML, PNG, JPG, TIFF, BMP)
+- LLM-powered normalization via Instructor + Pydantic — handles messy, inconsistent data
+- Files processed in-memory only, never stored on disk
 
-| Mode | Description | Best For |
-|------|-------------|----------|
-| Cost-Optimized | Fast models everywhere | Testing, iteration |
-| **Balanced** (default) | Fast extraction, thorough analysis | Most users |
-| Deep Analysis | Best models everywhere | Important decisions |
+### Analysis Engine
+- Process metrics: cycle time, bottleneck identification, dependency graph
+- Waste vs. core value differentiation (LLM judgment, not just "longest = worst")
+- Root cause analysis with explicit reasoning
+- ROI ranges: pessimistic / likely / optimistic with stated assumptions
+- Confidence scoring based on data completeness
+
+### Results Display
+- Summary-first layout: key insight → main opportunities → core value work
+- Issues linked directly to recommendations
+- Progressive disclosure: summary → plain explanation → concrete next steps
+- Estimated values marked with `*` to distinguish from user-provided data
+
+### Flexibility
+- OpenAI / Anthropic / Ollama (local) LLM support
+- Per-task model configuration (fast model for extraction, stronger for analysis)
+- Analysis mode presets: Cost-Optimized / Balanced / Deep Analysis
+- Export: CSV (Jira-compatible), text summary, markdown report
+
+---
+
+## Privacy
+
+- Uploaded files processed in-memory — never written to disk
+- Session data in local SQLite (browser-session scoped)
+- No persistent document storage
+- No training on user data
+- Self-hosted LLM option via Ollama for sensitive environments
+
+---
 
 ## Project Structure
 
 ```
-src/processiq/
-    config.py              # pydantic-settings configuration
-    llm.py                 # Centralized LLM factory (OpenAI/Anthropic/Ollama)
-    model_presets.py       # Analysis mode presets
-
-    models/                # Pydantic domain models
-        process.py         # ProcessStep, ProcessData
-        insight.py         # AnalysisInsight, Issue, Recommendation
-        constraints.py     # Constraints, Priority
-        memory.py          # BusinessProfile
-
-    analysis/              # Pure algorithms (no LLM)
-        metrics.py         # Process metrics for LLM consumption
-        roi.py             # ROI calculations
-        confidence.py      # Data completeness scoring
-
-    agent/                 # LangGraph agent
-        graph.py           # Graph: check_context -> analyze -> finalize
-        nodes.py           # Node functions
-        interface.py       # Clean API for UI
-
-    ingestion/             # Data loading
-        normalizer.py      # LLM extraction with Instructor
-        docling_parser.py  # Universal doc parsing (14 formats)
-        csv_loader.py      # CSV/Excel parsing
-
-    prompts/               # Jinja2 prompt templates
-        extraction.j2      # Process extraction + interview
-        analyze.j2         # LLM-based analysis
-        system.j2          # Base system prompt
-
-    persistence/           # Session persistence
-        checkpointer.py    # LangGraph SqliteSaver
-
-    ui/                    # Streamlit frontend
-        views.py           # Render functions
-        handlers.py        # Input handlers
-        components/        # Chat, expert panel, results display, etc.
+processiq/
+├── app.py                     # Streamlit entry point
+├── src/processiq/
+│   ├── config.py              # pydantic-settings configuration
+│   ├── constants.py
+│   ├── exceptions.py          # Custom exception hierarchy
+│   ├── llm.py                 # LLM factory (Anthropic/OpenAI/Ollama)
+│   ├── logging_config.py
+│   ├── model_presets.py       # Analysis mode presets
+│   │
+│   ├── agent/                 # LangGraph agent
+│   │   ├── state.py           # AgentState (TypedDict)
+│   │   ├── nodes.py           # 4 node functions
+│   │   ├── edges.py           # Conditional routing
+│   │   ├── graph.py           # Graph construction
+│   │   ├── interface.py       # Clean API for UI layer
+│   │   └── context.py         # Conversation context builder
+│   │
+│   ├── analysis/              # Pure algorithms (no LLM)
+│   │   ├── metrics.py         # Process metrics calculation
+│   │   ├── roi.py             # ROI with PERT-style ranges
+│   │   └── confidence.py      # Data completeness scoring
+│   │
+│   ├── ingestion/
+│   │   ├── csv_loader.py
+│   │   ├── excel_loader.py
+│   │   ├── normalizer.py      # LLM extraction via Instructor
+│   │   └── docling_parser.py  # Universal document parsing
+│   │
+│   ├── models/                # Pydantic domain models
+│   │   ├── process.py         # ProcessStep, ProcessData
+│   │   ├── constraints.py     # Constraints, Priority
+│   │   ├── insight.py         # AnalysisInsight, Issue, Recommendation
+│   │   └── memory.py          # BusinessProfile (memory-ready)
+│   │
+│   ├── persistence/
+│   │   ├── checkpointer.py    # LangGraph SqliteSaver wrapper
+│   │   └── user_store.py      # UUID-based session identity
+│   │
+│   ├── prompts/               # Jinja2 prompt templates
+│   │   ├── system.j2
+│   │   ├── extraction.j2
+│   │   ├── analyze.j2
+│   │   ├── clarification.j2
+│   │   ├── followup.j2
+│   │   └── improvement_suggestions.j2
+│   │
+│   ├── export/
+│   │   ├── csv_export.py      # Jira-compatible CSV
+│   │   └── summary.py         # Text and markdown reports
+│   │
+│   └── ui/
+│       ├── state.py           # Session state management
+│       ├── views.py           # Render functions
+│       ├── handlers.py        # Input handlers
+│       ├── styles.py          # CSS
+│       └── components/        # Streamlit UI components
+│
+├── tests/
+│   ├── unit/
+│   └── integration/
+│
+└── data/                      # Sample data for testing
+    ├── sample_process.csv
+    ├── sample_constraints.json
+    └── sample_messy.xlsx
 ```
 
-## Tech Stack
+---
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Agent orchestration | **LangGraph** | Stateful graph with conditional branching |
-| LLM providers | **OpenAI / Anthropic / Ollama** | Flexible model selection |
-| Structured output | **Instructor** | Pydantic-validated LLM responses with auto-retry |
-| Document parsing | **Docling** | PDF, DOCX, Excel, images (14 formats) |
-| Data models | **Pydantic** | Validation, serialization |
-| Configuration | **pydantic-settings** | Type-safe config with .env loading |
-| UI | **Streamlit** | Chat-first interface |
-| Prompt templates | **Jinja2** | Maintainable prompt management |
-| Observability | **LangSmith** | Trace agent execution |
-| Persistence | **SQLite** (via LangGraph) | Session checkpointing |
+## Technology Stack
 
-## Documentation
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Agent orchestration | LangGraph | Stateful graph with conditional branching |
+| LLM providers | OpenAI / Anthropic / Ollama | Analysis, extraction, clarification |
+| Structured output | Instructor + Pydantic | Validated LLM responses, auto-retry on failure |
+| Document parsing | Docling | PDF, DOCX, Excel, images (14 formats) |
+| UI | Streamlit | Chat-first interface |
+| Configuration | pydantic-settings | Type-safe `.env` config |
+| Prompt templating | Jinja2 | Separate `.j2` files, no inline strings |
+| Observability | LangSmith | Agent traces, token usage, node timing |
+| Session persistence | LangGraph SqliteSaver | Conversation checkpointing |
 
-- [Project Brief](docs/PROJECT_BRIEF.md) — Architecture, design rationale, and technical specification
-- [Conversation Flow](docs/CONVERSATION_FLOW.md) — Chat UI states, message types, and agent behavior
-- [Changelog](CHANGELOG.md) — Design decisions and code changes
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/SkybrushThriftwood/processIQ.git
+cd processiq
+uv sync --group dev
+cp .env.example .env
+# Edit .env — add your OPENAI_API_KEY or ANTHROPIC_API_KEY
+uv run streamlit run app.py
+```
+
+---
 
 ## Development
 
@@ -195,13 +313,53 @@ src/processiq/
 # Run tests
 uv run pytest
 
-# Lint and format
-uv run ruff check src/
-uv run ruff format src/
+# Run only non-LLM tests (fast, no API calls)
+uv run pytest -m "not llm"
 
-# Type checking
+# Lint
+uv run ruff check src/
+
+# Type check
 uv run mypy src/
 ```
+
+---
+
+## Roadmap (Phase 2)
+
+- ChromaDB integration for RAG (document embedding and retrieval)
+- Persistent memory across sessions (episodic + semantic)
+- Feedback-driven learning (accepted/rejected suggestions inform future recommendations)
+- LLM response streaming
+- Interactive process visualization
+- Multi-user collaboration
+
+---
+
+## Limitations
+
+- ROI estimates are assumption-driven, not actuarial
+- LLM reasoning quality depends on input completeness
+- Not a replacement for professional process consulting
+
+---
+
+## Differentiation
+
+| Enterprise Process Mining | ProcessIQ |
+|---------------------------|-----------|
+| Requires structured event logs | Works from plain text, files, or any format |
+| $100K+ licensing | Open-source |
+| Black-box analytics | Transparent assumptions and reasoning |
+
+| Generic LLM Chat | ProcessIQ |
+|------------------|-----------|
+| Unstructured text output | Validated Pydantic models |
+| Generic advice | Constraint-aware, business-calibrated recommendations |
+| No confidence tracking | Confidence-driven branching |
+| Stateless | Stateful agent with conversation history |
+
+---
 
 ## License
 

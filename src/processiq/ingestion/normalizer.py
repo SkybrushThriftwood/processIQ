@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Literal
 import instructor
 from anthropic import Anthropic
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from processiq.config import TASK_EXTRACTION, settings
 from processiq.exceptions import ExtractionError
@@ -54,12 +54,37 @@ class ExtractedStep(BaseModel):
         "(e.g., ['cost_per_instance', 'error_rate_pct'])",
     )
     depends_on: list[str] = Field(
-        default_factory=list, description="Names of prerequisite steps"
+        default_factory=list,
+        description="REQUIRED for every step except the first. List the step_name "
+        "values of all steps that must complete before this one can start. "
+        "Sequential descriptions ('after that', 'then', 'next') mean this step "
+        "depends on the previous step. If this step follows a group of "
+        "alternative steps, list ALL alternatives as dependencies.",
+    )
+    group_id: str | None = Field(
+        default=None,
+        description="Groups related steps. Steps with the same group_id are "
+        "alternatives (either/or) or parallel (simultaneous). Use a short "
+        "descriptive slug like 'receive_order' or 'post_delivery'.",
+    )
+    group_type: Literal["alternative", "parallel"] | None = Field(
+        default=None,
+        description="'alternative' = either/or choices (phone OR email), "
+        "'parallel' = simultaneous steps (invoice paid AND tax entry).",
     )
     confidence: float = Field(
         default=1.0, ge=0, le=1, description="LLM's confidence in this extraction (0-1)"
     )
     notes: str = Field(default="", description="Any caveats or assumptions made")
+
+    @model_validator(mode="after")
+    def validate_group_fields(self) -> "ExtractedStep":
+        """Ensure group_id and group_type are both set or both unset."""
+        if (self.group_id is None) != (self.group_type is None):
+            # Auto-fix: if one is set but not the other, clear both
+            self.group_id = None
+            self.group_type = None
+        return self
 
 
 class ExtractionResult(BaseModel):
@@ -275,10 +300,75 @@ def _extraction_result_to_process_data(result: ExtractionResult) -> ProcessData:
             cost_per_instance=step.cost_per_instance,
             estimated_fields=step.estimated_fields,
             depends_on=step.depends_on,
+            group_id=step.group_id,
+            group_type=step.group_type,
         )
         for step in result.steps
     ]
+
+    _infer_missing_dependencies(steps)
+
     return ProcessData(name=result.process_name, steps=steps)
+
+
+def _infer_missing_dependencies(steps: list[ProcessStep]) -> None:
+    """Fill in sequential dependencies the LLM omitted.
+
+    When the LLM doesn't populate depends_on for non-first steps that aren't
+    part of a group, default them to depend on the previous step. For steps
+    that follow a group of alternatives, depend on all alternatives in that group.
+
+    Mutates the steps list in place.
+    """
+    if len(steps) < 2:
+        return
+
+    all_step_names = {s.step_name for s in steps}
+    filled = 0
+
+    for i, step in enumerate(steps[1:], start=1):
+        if step.depends_on:
+            # Validate that referenced dependencies actually exist
+            step.depends_on = [d for d in step.depends_on if d in all_step_names]
+            if step.depends_on:
+                continue
+
+        # Skip steps that are part of a group — they share deps with siblings
+        # and should have been handled by the LLM
+        if step.group_id:
+            prev_non_group = _find_previous_non_group_step(steps, i, step.group_id)
+            if prev_non_group:
+                step.depends_on = [prev_non_group.step_name]
+                filled += 1
+            continue
+
+        # Check if previous step(s) form a group of alternatives
+        prev = steps[i - 1]
+        if prev.group_id and prev.group_type == "alternative":
+            # Depend on all alternatives in that group
+            group_deps = [
+                s.step_name for s in steps[:i]
+                if s.group_id == prev.group_id
+            ]
+            step.depends_on = group_deps
+            filled += 1
+        else:
+            # Simple sequential: depend on previous step
+            step.depends_on = [prev.step_name]
+            filled += 1
+
+    if filled:
+        logger.info("Inferred sequential dependencies for %d steps", filled)
+
+
+def _find_previous_non_group_step(
+    steps: list[ProcessStep], current_idx: int, current_group_id: str
+) -> ProcessStep | None:
+    """Find the nearest previous step not in the same group."""
+    for j in range(current_idx - 1, -1, -1):
+        if steps[j].group_id != current_group_id:
+            return steps[j]
+    return None
 
 
 def normalize_with_llm(
