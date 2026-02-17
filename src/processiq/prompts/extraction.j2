@@ -44,7 +44,7 @@ Your job is to EITHER:
 - User provides context but you'd need to guess at the actual workflow
 - The input is conversational/exploratory rather than descriptive
 
-**IMPORTANT: Never invent timing or cost data.** If the user hasn't provided timing, set values to 0 and list them in estimated_fields. The UI will show these as blank fields the user can fill in. Do NOT ask for clarification just because timing is missing — extract what you have and let the user add details incrementally.
+**IMPORTANT: Never invent timing or cost data.** If the user hasn't provided a value, set it to 0 AND add the field name to estimated_fields. The UI uses estimated_fields to show 0s as blank cells — if you set a value to 0 but forget to add it to estimated_fields, the user sees a misleading "0" instead of an empty cell. Every 0 that means "not provided" MUST have its field name in estimated_fields. A 0 WITHOUT the field in estimated_fields means "the user explicitly said this value is zero."
 
 ---
 
@@ -54,20 +54,34 @@ Extract process steps with these fields:
 - **step_name**: Clear, concise name for the step
 - **average_time_hours**: Time in hours. Convert from minutes/days if needed.
 - **resources_needed**: Number of people/systems involved (minimum 1)
-- **error_rate_pct**: Problem/disruption frequency (0-100). How often this step needs rework, hits delays, or encounters issues. Use 0 if unknown.
-- **cost_per_instance**: Labor cost in dollars per occurrence (hourly rate x time x resources). Use 0 if unknown.
-- **estimated_fields**: List of field names where the user did NOT provide the value and you used a default or estimate. For example, if the user said "client request takes 30 min" but didn't mention cost or error rate, set estimated_fields to ["cost_per_instance", "error_rate_pct"]. If the user provided all values explicitly, use an empty list [].
+- **error_rate_pct**: Problem/disruption frequency (0-100). How often this step needs rework, hits delays, or encounters issues. Use 0 if unknown, and add "error_rate_pct" to estimated_fields.
+- **cost_per_instance**: Labor cost in dollars per occurrence (hourly rate x time x resources). Use 0 if unknown, and add "cost_per_instance" to estimated_fields.
+- **estimated_fields**: CRITICAL — list ALL field names where the user did NOT explicitly provide the value. If a field is set to 0 because the user didn't mention it (not because the value is actually zero), that field MUST be in estimated_fields. For example, if the user said "client request takes 30 min" but didn't mention cost or error rate, set estimated_fields to ["cost_per_instance", "error_rate_pct"]. Only use an empty list [] when the user provided ALL values explicitly. When in doubt, ADD the field to estimated_fields — it's better to mark a field as estimated than to show a misleading zero.
 - **depends_on**: List of prerequisite step names (use exact names you've defined)
+- **group_id**: (optional) A short slug grouping related steps. Steps with the same group_id are either alternatives (either/or) or happen in parallel (simultaneously). Example: "receive_order" for phone vs email intake.
+- **group_type**: (required if group_id is set) Either "alternative" or "parallel":
+  - **"alternative"**: Steps the user chooses between (only ONE is executed per instance). Triggered by "or", "either...or", "alternatively", "choice between".
+  - **"parallel"**: Steps that happen simultaneously or concurrently. Triggered by "at the same time", "simultaneously", "meanwhile", "in parallel", "concurrently".
 - **confidence**: Your confidence in this extraction (0.0-1.0). Lower if assumptions were made.
 - **notes**: Any assumptions or data you couldn't extract
 
 **Extraction Guidelines:**
-1. Infer dependencies from sequence words ("after", "then", "following", "once X is done")
+1. **CRITICAL — Dependencies:** EVERY step after the first MUST have depends_on populated unless it truly has no prerequisite. When the user describes steps in sequence ("after that", "then", "following", "once X is done", "when"), each step depends on the previous one. When steps are described as alternatives (same group_id, group_type="alternative"), they share the same dependencies. When steps follow a group of alternatives, they depend on ALL alternatives in that group.
 2. For time ranges (e.g., "1-2 hours"), use the average
 3. For "days", multiply by 8 (working hours)
 4. Set confidence < 0.7 if you had to make significant assumptions
 5. Add to warnings if data is missing or contradictory
 6. Always populate estimated_fields accurately - this controls what the user sees as "AI estimate" vs "your data"
+
+**Dependency Examples:**
+- "Requests come via phone or email. After that we add to system." → "Add to System" depends on BOTH "Receive via Phone" AND "Receive via Email" (the alternatives)
+- "Step A, then step B, then step C" → B depends on A, C depends on B
+- "After delivery, the accountant processes the invoice and simultaneously finance adds it to tax system" → Both depend on delivery, both share a group_id with group_type="parallel"
+
+**Grouping Examples:**
+- "Orders come via phone (10 min) or email (5 min)" → Both get group_id="receive_order", group_type="alternative"
+- "Invoice gets paid and simultaneously finance adds to tax system" → Both get group_id="post_delivery", group_type="parallel"
+- Steps NOT described as alternatives or simultaneous should have group_id=null and group_type=null
 
 ---
 
@@ -107,19 +121,21 @@ User says: "the approval step actually takes 4 hours, not 2"
 
 When user explicitly asks for estimates (e.g., "fill in the costs", "estimate the missing values", "just guess"):
 
-1. **Make reasonable estimates** based on:
+1. **CRITICAL: Only estimate fields that are zero or missing (shown as "-" in the data).** Do NOT change values the user already provided. If a step already has average_time_hours=2.0, keep it at 2.0. Only fill in fields that are 0 or blank.
+
+2. **Make reasonable estimates** based on:
    - The process type (e.g., HR processes typically cost $50-100/hr for labor)
    - Step complexity (simple data entry vs. complex review)
    - Resources involved (1 person vs. team)
    - Industry context if provided
 
-2. **Set low confidence** (0.3-0.5) for steps with estimated values
+3. **Set low confidence** (0.3-0.5) for steps with estimated values
 
-3. **Document your reasoning** in the notes field:
+4. **Document your reasoning** in the notes field:
    - "Estimated: 30 min data entry task at $50/hr = $25"
    - "Estimated: Senior review task at $100/hr"
 
-4. **Add warning**: "Some values estimated at user request - verify before making decisions"
+5. **Add warning**: "Some values estimated at user request - verify before making decisions"
 
 **Estimation Examples:**
 

@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = SecretStr("")
     langsmith_api_key: SecretStr = SecretStr("")
     langsmith_endpoint: str = (
-        "https://api.smith.langchain.com"  # Use EU: https://eu.api.smith.langchain.com
+        "https://eu.api.smith.langchain.com"
     )
     langsmith_tracing: bool = True
     langchain_project: str = "processiq"
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     llm_task_analysis: LLMTaskConfig = Field(default_factory=LLMTaskConfig)
 
     # Application
-    log_level: str = "DEBUG"  # DEBUG for development, INFO for demo
+    log_level: str = "INFO"  # DEBUG for development, INFO for demo
     confidence_threshold: float = Field(
         default=0.6,
         ge=0.0,

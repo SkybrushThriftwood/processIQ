@@ -604,6 +604,7 @@ def extract_from_file(
     constraints: Constraints | None = None,
     profile: BusinessProfile | None = None,
     llm_provider: Literal["anthropic", "openai", "ollama"] | None = None,
+    current_process_data: ProcessData | None = None,
 ) -> AgentResponse:
     """Extract ProcessData from uploaded file.
 
@@ -616,6 +617,10 @@ def extract_from_file(
         analysis_mode: Analysis mode preset (cost_optimized, balanced, deep_analysis).
         constraints: Optional business constraints (for confidence calculation).
         profile: Optional business profile (for confidence calculation).
+        llm_provider: Optional LLM provider override.
+        current_process_data: Optional existing process data. When provided, the
+            LLM is instructed to match uploaded data to existing step names so that
+            merge_with() can correctly merge by name instead of creating duplicates.
 
     Returns:
         AgentResponse with process_data populated on success,
@@ -636,9 +641,52 @@ def extract_from_file(
     clarification: ClarificationNeeded | None = None
     used_llm = False
 
+    # Build merge-aware context when existing process data is available.
+    # This tells the LLM to reuse existing step names so merge_with() can
+    # match them instead of creating duplicates with different names.
+    merge_context = _build_file_merge_context(current_process_data, filename)
+
+    # Reject unsupported formats early
+    all_supported = {".csv", ".xlsx", ".xls"} | SUPPORTED_EXTENSIONS
+    if suffix not in all_supported:
+        supported_list = ", ".join(sorted(all_supported))
+        return AgentResponse(
+            message=f"Unsupported file format: {suffix}. "
+            f"Supported formats: {supported_list}",
+            is_error=True,
+            error_code="unsupported_format",
+        )
+
+    # When existing process data exists, skip structured loaders and go
+    # straight to LLM normalization. The LLM needs the merge context to
+    # map file step names (e.g., "Phone Request Intake") to existing names
+    # (e.g., "Receive Order via Phone"). Structured loaders can't do this.
+    needs_llm_merge = current_process_data is not None and current_process_data.steps
+
     try:
-        # Try structured loaders first (fast path for tabular data)
-        if suffix == ".csv":
+        if needs_llm_merge:
+            # Force LLM path for semantic name matching
+            logger.info(
+                "Existing process data found (%d steps), using LLM for file merge",
+                len(current_process_data.steps),
+            )
+            content = _file_bytes_to_text(file_bytes, suffix)
+            process_data, response = normalize_with_llm(
+                content=content,
+                additional_context=merge_context,
+                analysis_mode=analysis_mode,
+                provider=llm_provider,
+            )
+            used_llm = True
+
+            if response.response_type == "needs_clarification":
+                clarification = response.clarification
+                extraction_result = None
+            else:
+                extraction_result = response.extraction
+
+        # No existing data — try structured loaders first (fast path)
+        elif suffix == ".csv":
             process_data = load_csv_from_bytes(
                 file_bytes, process_name=Path(filename).stem
             )
@@ -646,7 +694,7 @@ def extract_from_file(
             process_data = load_excel_from_bytes(
                 file_bytes, process_name=Path(filename).stem
             )
-        elif suffix in SUPPORTED_EXTENSIONS:
+        else:
             # Use Docling for PDFs, images, DOCX, etc.
             logger.info("Using Docling parser for %s file", suffix)
             parsed_doc = parse_document(file_bytes, filename)
@@ -663,15 +711,6 @@ def extract_from_file(
                 extraction_result = None
             else:
                 extraction_result = response.extraction
-        else:
-            # Unsupported format
-            supported_list = ", ".join(sorted(SUPPORTED_EXTENSIONS))
-            return AgentResponse(
-                message=f"Unsupported file format: {suffix}. "
-                f"Supported formats: {supported_list}",
-                is_error=True,
-                error_code="unsupported_format",
-            )
 
         # Check if we got usable data
         if process_data is None or not process_data.steps:
@@ -682,7 +721,7 @@ def extract_from_file(
             content = _file_bytes_to_text(file_bytes, suffix)
             process_data, response = normalize_with_llm(
                 content=content,
-                additional_context=f"This data was loaded from a file named {filename}",
+                additional_context=merge_context,
                 analysis_mode=analysis_mode,
                 provider=llm_provider,
             )
@@ -708,7 +747,7 @@ def extract_from_file(
             content = _file_bytes_to_text(file_bytes, suffix)
             process_data, response = normalize_with_llm(
                 content=content,
-                additional_context=f"This data was loaded from a file named {filename}",
+                additional_context=merge_context,
                 analysis_mode=analysis_mode,
                 provider=llm_provider,
             )
@@ -941,6 +980,47 @@ def has_saved_state(thread_id: str) -> bool:
 
 
 # Helper functions
+
+
+def _build_file_merge_context(
+    current_process_data: ProcessData | None,
+    filename: str,
+) -> str:
+    """Build additional_context for file extraction that enables smart merging.
+
+    When existing process data exists, instructs the LLM to reuse existing step
+    names where the uploaded file data refers to the same step under a different
+    name. This lets merge_with() match by name instead of creating duplicates.
+
+    Args:
+        current_process_data: Existing process data (may be None).
+        filename: The uploaded filename.
+
+    Returns:
+        Additional context string for the LLM extraction call.
+    """
+    base = f"This data was loaded from a file named {filename}."
+
+    if not current_process_data or not current_process_data.steps:
+        return base
+
+    step_names = [s.step_name for s in current_process_data.steps]
+    names_list = "\n".join(f"  - {name}" for name in step_names)
+
+    return (
+        f"{base}\n\n"
+        f"IMPORTANT — Existing process steps already extracted from a previous input:\n"
+        f"{names_list}\n\n"
+        f"The file may refer to the same steps under different names (e.g., "
+        f"'Phone Request Intake' in the file is the same as 'Receive Order via Phone' "
+        f"from the previous input).\n\n"
+        f"Rules for step naming:\n"
+        f"1. If a step in the file clearly maps to an existing step above, "
+        f"use the EXISTING step name exactly as written above.\n"
+        f"2. Only create a NEW step name if the file describes an activity "
+        f"that has no match in the existing steps.\n"
+        f"3. When in doubt, prefer matching to an existing step over creating a new one."
+    )
 
 
 def _generate_insight_summary(insight: AnalysisInsight) -> str:

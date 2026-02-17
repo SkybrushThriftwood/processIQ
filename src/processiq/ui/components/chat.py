@@ -165,6 +165,42 @@ def create_clarification_message(
     )
 
 
+def _compute_step_numbers(steps: list[ProcessStep]) -> list[str]:
+    """Compute display step numbers with group labels.
+
+    Sequential steps: "1", "2", "3"
+    Alternative group (either/or): "1a (OR)", "1b (OR)"
+    Parallel group (simultaneous): "5a (AND)", "5b (AND)"
+    """
+    numbers: list[str] = []
+    base_num = 1
+    # group_id -> (base_number, next_letter_index)
+    seen_groups: dict[str, tuple[int, int]] = {}
+
+    for step in steps:
+        gid = getattr(step, "group_id", None)
+        gtype = getattr(step, "group_type", None)
+
+        if gid:
+            if gid in seen_groups:
+                grp_base, letter_idx = seen_groups[gid]
+                letter = chr(ord("a") + letter_idx)
+                seen_groups[gid] = (grp_base, letter_idx + 1)
+            else:
+                grp_base = base_num
+                letter = "a"
+                seen_groups[gid] = (grp_base, 1)
+                base_num += 1
+
+            label = "(OR)" if gtype == "alternative" else "(AND)"
+            numbers.append(f"{grp_base}{letter} {label}")
+        else:
+            numbers.append(str(base_num))
+            base_num += 1
+
+    return numbers
+
+
 def _render_text_message(message: ChatMessage) -> None:
     """Render a plain text message."""
     st.markdown(message.content)
@@ -256,11 +292,12 @@ def _render_data_card(message: ChatMessage) -> None:
         st.warning("No process data available.")
         return
 
-    # Build table data with numeric values
+    # Build table data with numeric values and step numbering
     rows = []
     has_estimates = False
+    step_numbers = _compute_step_numbers(process_data.steps)
 
-    for step in process_data.steps:
+    for idx, step in enumerate(process_data.steps):
         estimated = set(getattr(step, "estimated_fields", []))
 
         # Show None (blank cell) for fields that are zero AND marked as estimated
@@ -285,7 +322,8 @@ def _render_data_card(message: ChatMessage) -> None:
 
         rows.append(
             {
-                "Step": f"{step.step_name} *" if step_has_estimates else step.step_name,
+                "Step #": step_numbers[idx],
+                "Step Name": f"{step.step_name} *" if step_has_estimates else step.step_name,
                 "Time (hrs)": time_val,
                 "Cost ($)": cost_val,
                 "Problem Freq.": freq_val,
@@ -304,8 +342,14 @@ def _render_data_card(message: ChatMessage) -> None:
         disabled=not is_editable,
         key=f"data_card_{message.timestamp.timestamp()}",
         column_config={
-            "Step": st.column_config.TextColumn(
-                "Step",
+            "Step #": st.column_config.TextColumn(
+                "Step #",
+                help="Step number. (OR) = alternative paths, (AND) = simultaneous steps",
+                width="small",
+                disabled=True,
+            ),
+            "Step Name": st.column_config.TextColumn(
+                "Step Name",
                 help="Process step name",
                 width="medium",
             ),
@@ -423,7 +467,7 @@ def _apply_table_edits(
     try:
         new_steps = []
         for _, row in edited_df.iterrows():
-            step_name = str(row["Step"]).strip()
+            step_name = str(row["Step Name"]).strip()
             if not step_name:
                 continue
 
@@ -471,6 +515,8 @@ def _apply_table_edits(
                     else int(resources_val),
                     depends_on=depends_on,
                     estimated_fields=estimated,
+                    group_id=getattr(orig_step, "group_id", None) if orig_step else None,
+                    group_type=getattr(orig_step, "group_type", None) if orig_step else None,
                 )
             )
 

@@ -71,6 +71,11 @@ class Recommendation(BaseModel):
         ...,
         description="Qualitative benefit (e.g., '~1 hour saved per project')",
     )
+    estimated_roi: str = Field(
+        default="",
+        description="Rough ROI estimate as a range (e.g., '$500-$2,000/month savings'). "
+        "Based on the process data provided — labeled as a rough estimate.",
+    )
     risks: list[str] = Field(
         default_factory=list,
         description="Trade-offs and potential downsides",

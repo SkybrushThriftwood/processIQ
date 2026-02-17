@@ -201,9 +201,28 @@ def _render_recommendation_compact(rec: Recommendation) -> None:
     st.markdown(f"**{rec.title}** ({feasibility_text})")
     st.markdown(rec.description)
 
-    # Expected benefit
+    # Expected benefit + ROI
     if rec.expected_benefit:
         st.markdown(f"Expected benefit: {rec.expected_benefit}")
+
+    if rec.estimated_roi:
+        st.markdown(
+            f"""<div style="
+                font-size: 0.85rem;
+                padding: 0.4rem 0.75rem;
+                background: {COLORS['success']}10;
+                border-left: 2px solid {COLORS['success']};
+                border-radius: 0 0.25rem 0.25rem 0;
+                margin: 0.25rem 0 0.5rem 0;
+                color: {COLORS['text']};
+            ">
+                <strong>Estimated ROI:</strong> {rec.estimated_roi}
+                <span style="font-size: 0.75rem; color: {COLORS['text_muted']};">
+                    (rough estimate)
+                </span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
     # Progressive disclosure: plain explanation (Layer 2)
     if rec.plain_explanation:
@@ -237,6 +256,25 @@ def _render_standalone_recommendation(rec: Recommendation, index: int) -> None:
 
     if rec.expected_benefit:
         st.markdown(f"Expected benefit: {rec.expected_benefit}")
+
+    if rec.estimated_roi:
+        st.markdown(
+            f"""<div style="
+                font-size: 0.85rem;
+                padding: 0.4rem 0.75rem;
+                background: {COLORS['success']}10;
+                border-left: 2px solid {COLORS['success']};
+                border-radius: 0 0.25rem 0.25rem 0;
+                margin: 0.25rem 0 0.5rem 0;
+                color: {COLORS['text']};
+            ">
+                <strong>Estimated ROI:</strong> {rec.estimated_roi}
+                <span style="font-size: 0.75rem; color: {COLORS['text_muted']};">
+                    (rough estimate)
+                </span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
     # Progressive disclosure: plain explanation (Layer 2)
     if rec.plain_explanation:
