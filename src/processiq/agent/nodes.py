@@ -145,6 +145,10 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
         _format_constraints_for_llm(constraints) if constraints else None
     )
 
+    # Format feedback history (if user has rated previous recommendations)
+    feedback = state.get("feedback_history", {})
+    feedback_text = _format_feedback_history(feedback) if feedback else None
+
     # Call LLM for analysis
     analysis_mode = state.get("analysis_mode")
     llm_provider = state.get("llm_provider")
@@ -155,6 +159,7 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
         profile=profile,
         analysis_mode=analysis_mode,
         llm_provider=llm_provider,
+        feedback_history=feedback_text,
     )
 
     if insight is None:
@@ -225,6 +230,42 @@ def finalize_analysis_node(state: AgentState) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _format_feedback_history(feedback: dict[str, dict]) -> str | None:
+    """Format recommendation feedback into text for the LLM prompt.
+
+    Args:
+        feedback: Dict keyed by recommendation title, values have
+                  "vote" ("up"/"down") and optional "reason".
+
+    Returns:
+        Formatted text for the prompt, or None if no feedback.
+    """
+    if not feedback:
+        return None
+
+    lines = []
+    rejected = [(t, f) for t, f in feedback.items() if f["vote"] == "down"]
+    accepted = [(t, f) for t, f in feedback.items() if f["vote"] == "up"]
+
+    if rejected:
+        lines.append("REJECTED recommendations (do NOT suggest these again):")
+        for title, f in rejected:
+            reason = f.get("reason")
+            if reason:
+                lines.append(f'- "{title}" -- Reason: {reason}')
+            else:
+                lines.append(f'- "{title}" -- (no reason given)')
+
+    if accepted:
+        if lines:
+            lines.append("")
+        lines.append("ACCEPTED recommendations (user found these valuable):")
+        for title, _ in accepted:
+            lines.append(f'- "{title}"')
+
+    return "\n".join(lines) if lines else None
+
+
 def _run_llm_analysis(
     metrics_text: str,
     business_context: str | None = None,
@@ -232,6 +273,7 @@ def _run_llm_analysis(
     profile: BusinessProfile | None = None,
     analysis_mode: str | None = None,
     llm_provider: str | None = None,
+    feedback_history: str | None = None,
 ) -> AnalysisInsight | None:
     """Run LLM-based process analysis using structured output.
 
@@ -264,6 +306,7 @@ def _run_llm_analysis(
             metrics_text=metrics_text,
             business_context=business_context,
             constraints_summary=constraints_summary,
+            feedback_history=feedback_history,
         )
 
         messages = [

@@ -18,7 +18,9 @@ from processiq.models import AnalysisInsight
 from processiq.models.insight import Issue, NotAProblem, Recommendation
 from processiq.ui.state import (
     get_analysis_insight,
+    get_recommendation_feedback,
     get_reasoning_trace,
+    set_recommendation_feedback,
 )
 from processiq.ui.styles import COLORS, get_severity_color
 
@@ -247,6 +249,71 @@ def _render_recommendation_compact(rec: Recommendation) -> None:
             for prereq in rec.prerequisites:
                 st.markdown(f"- {prereq}")
 
+    _render_feedback_buttons(rec.title)
+
+
+def _render_feedback_buttons(rec_title: str) -> None:
+    """Render compact thumbs up/down feedback buttons for a recommendation."""
+    feedback = get_recommendation_feedback()
+    existing = feedback.get(rec_title)
+
+    # Stable widget key from title
+    safe_key = "".join(c if c.isalnum() else "_" for c in rec_title)[:40]
+
+    if existing and existing["vote"] == "up":
+        st.caption("Marked as helpful")
+        return
+
+    if existing and existing["vote"] == "down":
+        reason = existing.get("reason")
+        if reason:
+            st.caption(f"Not useful: {reason}")
+        else:
+            # Allow adding a reason after voting down
+            reason_input = st.text_input(
+                "Why not?",
+                key=f"reason_{safe_key}",
+                placeholder="Optional: why doesn't this work for you?",
+                label_visibility="collapsed",
+            )
+            if reason_input:
+                set_recommendation_feedback(rec_title, "down", reason_input)
+                st.rerun()
+            else:
+                st.caption("Marked as not useful")
+        return
+
+    # No feedback yet — show vote buttons with tooltip
+    cols = st.columns([2, 2, 0.4, 7.4])
+    with cols[0]:
+        if st.button(
+            "Helpful",
+            key=f"up_{safe_key}",
+            type="secondary",
+            use_container_width=True,
+        ):
+            set_recommendation_feedback(rec_title, "up")
+            st.rerun()
+    with cols[1]:
+        if st.button(
+            "Not useful",
+            key=f"down_{safe_key}",
+            type="secondary",
+            use_container_width=True,
+        ):
+            set_recommendation_feedback(rec_title, "down")
+            st.rerun()
+    with cols[2]:
+        st.markdown(
+            '<span title="Your feedback helps the AI learn which '
+            "recommendations are relevant to your situation. When you "
+            "re-run the analysis, rated recommendations are adjusted "
+            'accordingly." style="cursor: help; font-size: 0.85rem; '
+            f'color: {COLORS["text_muted"]}; vertical-align: middle;">'
+            "&#9432;</span>",
+            unsafe_allow_html=True,
+        )
+
 
 def _render_standalone_recommendation(rec: Recommendation, index: int) -> None:
     """Render a recommendation that isn't linked to a specific issue."""
@@ -292,6 +359,7 @@ def _render_standalone_recommendation(rec: Recommendation, index: int) -> None:
             for risk in rec.risks:
                 st.markdown(f"- {risk}")
 
+    _render_feedback_buttons(rec.title)
     st.markdown("---")
 
 

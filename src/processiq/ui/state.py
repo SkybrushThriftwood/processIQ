@@ -6,6 +6,7 @@ across reruns and provide type hints.
 
 import logging
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
 
@@ -120,6 +121,8 @@ _STATE_DEFAULTS: dict[str, Any] = {
     "draft_steps": None,  # list[dict] or None
     # File upload key counter (incrementing clears the widget)
     "file_upload_key_counter": 0,
+    # Recommendation feedback (persists across re-analyses within session)
+    "recommendation_feedback": {},
 }
 
 
@@ -561,6 +564,33 @@ def remove_draft_step(index: int) -> None:
     if 0 <= index < len(steps):
         steps.pop(index)
         st.session_state.draft_steps = steps
+
+
+# --- Recommendation Feedback ---
+
+
+def get_recommendation_feedback() -> dict[str, dict]:
+    """Get all recommendation feedback for this session."""
+    return st.session_state.get("recommendation_feedback", {})
+
+
+def set_recommendation_feedback(
+    title: str, vote: str, reason: str | None = None
+) -> None:
+    """Record feedback on a recommendation.
+
+    Args:
+        title: Recommendation title (used as key).
+        vote: "up" or "down".
+        reason: Optional rejection reason (only for "down" votes).
+    """
+    feedback = get_recommendation_feedback()
+    feedback[title] = {
+        "vote": vote,
+        "reason": reason,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    st.session_state.recommendation_feedback = feedback
 
 
 # --- File Upload Key ---

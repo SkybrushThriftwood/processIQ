@@ -171,6 +171,7 @@ def get_analysis_prompt(
     business_context: str | None = None,
     constraints_summary: str | None = None,
     user_concerns: str | None = None,
+    feedback_history: str | None = None,
 ) -> str:
     """Get prompt for LLM-based process analysis.
 
@@ -182,6 +183,7 @@ def get_analysis_prompt(
         business_context: Optional formatted business context (industry, size, revenue, notes).
         constraints_summary: Optional summary of active constraints.
         user_concerns: Optional user-stated concerns to address.
+        feedback_history: Optional formatted feedback from previous recommendations.
 
     Returns:
         Rendered prompt string for process analysis.
@@ -192,6 +194,7 @@ def get_analysis_prompt(
         business_context=business_context,
         constraints_summary=constraints_summary,
         user_concerns=user_concerns,
+        feedback_history=feedback_history,
     )
 
 

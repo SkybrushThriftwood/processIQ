@@ -311,6 +311,7 @@ def analyze_process(
     user_id: str | None = None,
     analysis_mode: str | None = None,
     llm_provider: Literal["anthropic", "openai", "ollama"] | None = None,
+    feedback_history: dict | None = None,
 ) -> AgentResponse:
     """Run full analysis on confirmed process data.
 
@@ -350,6 +351,7 @@ def analyze_process(
             profile=profile,
             analysis_mode=analysis_mode,
             llm_provider=llm_provider,
+            feedback_history=feedback_history,
         )
 
         # Get checkpointer for persistence (if enabled)

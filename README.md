@@ -186,6 +186,7 @@ High-CQ means recommendations adapt to the user's specific business reality.
 - Issues linked directly to recommendations
 - Progressive disclosure: summary → plain explanation → concrete next steps
 - Estimated values marked with `*` to distinguish from user-provided data
+- Per-recommendation feedback (helpful / not useful + optional rejection reason); feedback is injected into subsequent analyses so the LLM avoids repeating rejected approaches
 
 ### Flexibility
 - OpenAI / Anthropic / Ollama (local) LLM support
@@ -328,8 +329,7 @@ uv run mypy src/
 ## Roadmap (Phase 2)
 
 - ChromaDB integration for RAG (document embedding and retrieval)
-- Persistent memory across sessions (episodic + semantic)
-- Feedback-driven learning (accepted/rejected suggestions inform future recommendations)
+- Persistent memory across sessions (episodic + semantic) — feedback currently session-scoped, Phase 2 extends it across sessions
 - LLM response streaming
 - Interactive process visualization
 - Multi-user collaboration
