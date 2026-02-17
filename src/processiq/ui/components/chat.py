@@ -54,8 +54,8 @@ class ChatMessage:
     timestamp: datetime = field(default_factory=datetime.now)
 
     # Optional structured data
-    data: Any = None  # ProcessData, AnalysisResult, etc.
-    analysis_insight: AnalysisInsight | None = None  # New LLM-based insight (preferred)
+    data: Any = None  # ProcessData, etc.
+    analysis_insight: AnalysisInsight | None = None
     file_name: str | None = None
     questions: list[dict] | None = None
     is_editable: bool = False
@@ -443,19 +443,34 @@ def _apply_table_edits(
             error_val = row.get("Problem Freq.", 0)
             resources_val = row.get("Resources", 0)
 
+            new_time = 0.0 if pd.isna(time_val) else float(time_val)
+            new_cost = 0.0 if pd.isna(cost_val) else float(cost_val)
+            new_error = 0.0 if pd.isna(error_val) else float(error_val)
+
+            # Remove fields from estimated_fields if the user changed the value
+            # (user-edited values are no longer AI-estimated)
+            estimated = list(getattr(orig_step, "estimated_fields", [])) if orig_step else []
+            if orig_step and estimated:
+                field_map = {
+                    "average_time_hours": (new_time, orig_step.average_time_hours),
+                    "cost_per_instance": (new_cost, orig_step.cost_per_instance),
+                    "error_rate_pct": (new_error, orig_step.error_rate_pct),
+                }
+                for field, (new_v, old_v) in field_map.items():
+                    if field in estimated and new_v != old_v:
+                        estimated.remove(field)
+
             new_steps.append(
                 ProcessStep(
                     step_name=clean_name,
-                    average_time_hours=0.0 if pd.isna(time_val) else float(time_val),
-                    cost_per_instance=0.0 if pd.isna(cost_val) else float(cost_val),
-                    error_rate_pct=0.0 if pd.isna(error_val) else float(error_val),
+                    average_time_hours=new_time,
+                    cost_per_instance=new_cost,
+                    error_rate_pct=new_error,
                     resources_needed=0
                     if pd.isna(resources_val)
                     else int(resources_val),
                     depends_on=depends_on,
-                    estimated_fields=getattr(orig_step, "estimated_fields", [])
-                    if orig_step
-                    else [],
+                    estimated_fields=estimated,
                 )
             )
 

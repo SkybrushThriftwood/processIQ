@@ -10,6 +10,12 @@ Categories: `DESIGN`, `ARCHITECTURE`, `SCOPE`, `TECH`, `DECISION`
 
 ## 2026-02-16
 
+### CODE: Comprehensive test suite (265 tests)
+
+- Created 19 test files covering models, analysis algorithms, agent routing, ingestion loaders, exports, prompts, exceptions, and LLM utilities. Migrated old `test_new_analysis.py` into the new structure.
+- Coverage: models 100%, analysis 90-100%, agent/edges 100%, ingestion 81-94%, exports 81-100%, exceptions 100%.
+- Added `pytest-cov` dev dependency and `@pytest.mark.llm` marker for LLM-dependent tests.
+
 ### FIX: Post-analysis follow-up conversation now uses LLM
 
 - Follow-up questions after analysis (including "Questions to Consider") were handled by regex string matching with a canned response — no LLM call. Now routes all follow-up questions to the LLM with full analysis context, chat history, business profile, and constraints.

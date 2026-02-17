@@ -78,3 +78,67 @@ class ProcessData(BaseModel):
             if step.step_name == name:
                 return step
         return None
+
+    def merge_with(self, other: "ProcessData") -> "ProcessData":
+        """Merge another ProcessData into this one.
+
+        Matching steps (by name, case-insensitive): other's non-zero values
+        overwrite self's values and clear the field from estimated_fields.
+        New steps from other are appended. Steps only in self are preserved.
+        """
+        # Index other's steps by normalized name
+        other_by_name: dict[str, ProcessStep] = {
+            s.step_name.strip().lower(): s for s in other.steps
+        }
+        seen_names: set[str] = set()
+        merged_steps: list[ProcessStep] = []
+
+        for existing in self.steps:
+            key = existing.step_name.strip().lower()
+            seen_names.add(key)
+            incoming = other_by_name.get(key)
+
+            if incoming is None:
+                # Step only in self — keep as-is
+                merged_steps.append(existing.model_copy())
+                continue
+
+            # Merge: incoming non-zero values overwrite existing
+            estimated = list(existing.estimated_fields)
+            merge_fields = {
+                "average_time_hours": (incoming.average_time_hours, existing.average_time_hours),
+                "cost_per_instance": (incoming.cost_per_instance, existing.cost_per_instance),
+                "error_rate_pct": (incoming.error_rate_pct, existing.error_rate_pct),
+            }
+
+            merged_values: dict[str, float] = {}
+            for field_name, (new_v, old_v) in merge_fields.items():
+                if new_v != 0:
+                    merged_values[field_name] = new_v
+                    if field_name in estimated:
+                        estimated.remove(field_name)
+                else:
+                    merged_values[field_name] = old_v
+
+            merged_steps.append(
+                ProcessStep(
+                    step_name=existing.step_name,
+                    average_time_hours=merged_values["average_time_hours"],
+                    cost_per_instance=merged_values["cost_per_instance"],
+                    error_rate_pct=merged_values["error_rate_pct"],
+                    resources_needed=incoming.resources_needed if incoming.resources_needed > 1 else existing.resources_needed,
+                    depends_on=incoming.depends_on or existing.depends_on,
+                    estimated_fields=estimated,
+                )
+            )
+
+        # Append steps only in other
+        for other_step in other.steps:
+            if other_step.step_name.strip().lower() not in seen_names:
+                merged_steps.append(other_step.model_copy())
+
+        return ProcessData(
+            name=self.name,
+            description=self.description or other.description,
+            steps=merged_steps,
+        )

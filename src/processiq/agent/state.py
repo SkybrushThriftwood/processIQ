@@ -10,7 +10,6 @@ from typing_extensions import TypedDict
 
 from processiq.models import (
     AnalysisInsight,
-    AnalysisResult,
     BusinessProfile,
     Constraints,
     ProcessData,
@@ -30,8 +29,7 @@ class AgentState(TypedDict, total=False):
     profile: BusinessProfile | None
 
     # Analysis results
-    analysis_result: AnalysisResult | None  # Legacy fallback
-    analysis_insight: AnalysisInsight | None  # LLM-based analysis output (preferred)
+    analysis_insight: AnalysisInsight | None
 
     # Confidence and data quality
     confidence_score: float
@@ -68,7 +66,6 @@ def create_initial_state(
         process=process,
         constraints=constraints,
         profile=profile,
-        analysis_result=None,
         analysis_insight=None,
         confidence_score=0.0,
         data_gaps=[],

@@ -39,7 +39,6 @@ from processiq.ingestion import (
 )
 from processiq.models import (
     AnalysisInsight,
-    AnalysisResult,
     BusinessProfile,
     CompanySize,
     Constraints,
@@ -67,8 +66,7 @@ class AgentResponse:
     extraction_result: ExtractionResult | None = None  # LLM extraction details
 
     # Analysis results (populated by analyze_process)
-    analysis_result: AnalysisResult | None = None  # Legacy algorithm-based result
-    analysis_insight: AnalysisInsight | None = None  # New LLM-based insight (preferred)
+    analysis_insight: AnalysisInsight | None = None
     confidence: ConfidenceResult | None = None
 
     # Conversation state
@@ -101,11 +99,6 @@ class AgentResponse:
     @property
     def has_analysis(self) -> bool:
         """Check if response contains analysis results."""
-        return self.analysis_result is not None or self.analysis_insight is not None
-
-    @property
-    def has_insight(self) -> bool:
-        """Check if response contains new LLM-based insight (preferred over analysis_result)."""
         return self.analysis_insight is not None
 
     @property
@@ -335,7 +328,7 @@ def analyze_process(
         llm_provider: Optional LLM provider override (openai, anthropic, ollama).
 
     Returns:
-        AgentResponse with analysis_result populated on success,
+        AgentResponse with analysis_insight populated on success,
         or is_error=True with message on failure.
     """
     # Generate thread_id if not provided

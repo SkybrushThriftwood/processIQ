@@ -212,6 +212,23 @@ def handle_file_upload(uploaded_file) -> bool:
         llm_provider=get_llm_provider(),
     )
 
+    # Merge with existing data if present (file complements rather than replaces)
+    existing = get_process_data()
+    if existing and response.has_data and response.process_data is not None:
+        merged = existing.merge_with(response.process_data)
+        response.process_data = merged
+        new_count = len(response.process_data.steps) - len(existing.steps)
+        updated_count = len(existing.steps)
+        parts = []
+        if updated_count:
+            parts.append(f"updated {updated_count} existing steps")
+        if new_count > 0:
+            parts.append(f"added {new_count} new steps")
+        merge_desc = " and ".join(parts) if parts else "merged data"
+        add_message(
+            create_status_message(f"Merged {file_name} with existing data: {merge_desc}.")
+        )
+
     _handle_extraction_response(response)
     return True
 

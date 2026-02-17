@@ -209,7 +209,7 @@ def _extract_with_openai(
     content: str,
     additional_context: str = "",
     conversation_context: str = "",
-    model: str = "gpt-5-nano",
+    model: str = "gpt-4o-mini",
 ) -> ExtractionResponse:
     """Extract process data using OpenAI GPT.
 
@@ -247,7 +247,7 @@ def _extract_with_openai(
         "response_model": ExtractionResponse,
     }
     if restricted:
-        create_kwargs["max_completion_tokens"] = 4096
+        create_kwargs["max_completion_tokens"] = 16384
     else:
         create_kwargs["max_tokens"] = 4096
         create_kwargs["temperature"] = 0
