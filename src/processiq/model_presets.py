@@ -9,20 +9,20 @@ For Ollama: PROVIDER_MODEL_PRESETS["ollama"][mode] = "model-id" (single model fo
 PROVIDER_MODEL_PRESETS: dict[str, dict[str, dict[str, str] | str]] = {
     "openai": {
         "cost_optimized": {
-            "extraction": "gpt-5-nano",
-            "clarification": "gpt-5-nano",
+            "extraction": "gpt-4o-mini",
+            "clarification": "gpt-4o-mini",
             "explanation": "gpt-5-nano",
             "analysis": "gpt-5-nano",
         },
         "balanced": {
-            "extraction": "gpt-5-nano",
-            "clarification": "gpt-5-nano",
+            "extraction": "gpt-4o-mini",
+            "clarification": "gpt-4o-mini",
             "explanation": "gpt-5-mini",
             "analysis": "gpt-5-mini",
         },
         "deep_analysis": {
-            "extraction": "gpt-5-mini",
-            "clarification": "gpt-5-mini",
+            "extraction": "gpt-4o-mini",
+            "clarification": "gpt-4o-mini",
             "explanation": "gpt-5",
             "analysis": "gpt-5",
         },

@@ -29,7 +29,6 @@ from processiq.ui.state import (
     ChatState,
     get_analysis_insight,
     get_analysis_mode,
-    get_analysis_result,
     get_business_profile,
     get_chat_state,
     get_constraints,
@@ -160,9 +159,7 @@ def render_chat_area() -> None:
 
     # Show results display if we have analysis (prefer insight over legacy result)
     # Keep showing results in CONTINUING state so they don't vanish on follow-up
-    if current_state in (ChatState.RESULTS, ChatState.CONTINUING) and (
-        get_analysis_insight() or get_analysis_result()
-    ):
+    if current_state in (ChatState.RESULTS, ChatState.CONTINUING) and get_analysis_insight():
         st.divider()
         render_results()
         st.divider()

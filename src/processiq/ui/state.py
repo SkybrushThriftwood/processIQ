@@ -14,7 +14,6 @@ import streamlit as st
 from processiq.config import ANALYSIS_MODE_BALANCED
 from processiq.models import (
     AnalysisInsight,
-    AnalysisResult,
     BusinessProfile,
     ClarificationBundle,
     ClarificationResponse,
@@ -69,8 +68,7 @@ class SessionState:
     business_profile: BusinessProfile | None = None
 
     # Analysis
-    analysis_result: AnalysisResult | None = None  # Legacy algorithm-based result
-    analysis_insight: AnalysisInsight | None = None  # New LLM-based insight (preferred)
+    analysis_insight: AnalysisInsight | None = None
     confidence: Any | None = None  # ConfidenceResult
 
     # UI settings
@@ -268,24 +266,11 @@ def set_business_profile(profile: BusinessProfile | None) -> None:
     st.session_state.business_profile = profile
 
 
-# --- Analysis Result ---
-
-
-def get_analysis_result() -> AnalysisResult | None:
-    """Get legacy analysis result."""
-    return st.session_state.get("analysis_result")
-
-
-def set_analysis_result(result: AnalysisResult | None) -> None:
-    """Set legacy analysis result."""
-    st.session_state.analysis_result = result
-
-
-# --- Analysis Insight (New LLM-based) ---
+# --- Analysis Insight ---
 
 
 def get_analysis_insight() -> AnalysisInsight | None:
-    """Get new LLM-based analysis insight (preferred over analysis_result)."""
+    """Get LLM-based analysis insight."""
     return st.session_state.get("analysis_insight")
 
 
@@ -617,7 +602,6 @@ def reset_conversation() -> None:
     st.session_state.thread_id = make_thread_id(user_id)
     st.session_state.process_data = None
     st.session_state.partial_process = None
-    st.session_state.analysis_result = None
     st.session_state.analysis_insight = None
     st.session_state.confidence = None
     st.session_state.last_uploaded_file = None
