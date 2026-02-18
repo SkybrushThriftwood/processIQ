@@ -219,7 +219,7 @@ New AnalysisInsight with adjusted recommendations
 - Post-analysis follow-up conversation with full context
 
 ### Data Ingestion
-- 14 supported file formats via Docling (PDF, DOCX, PPTX, Excel, HTML, PNG, JPG, TIFF, BMP)
+- CSV and Excel upload with pandas-based parsing
 - LLM-powered normalization via Instructor + Pydantic — handles messy, inconsistent data
 - Files processed in-memory only, never stored on disk
 
@@ -335,7 +335,7 @@ processiq/
 | Agent orchestration | LangGraph | Stateful graph with conditional branching |
 | LLM providers | OpenAI / Anthropic / Ollama | Analysis, extraction, clarification |
 | Structured output | Instructor + Pydantic | Validated LLM responses, auto-retry on failure |
-| Document parsing | Docling | PDF, DOCX, Excel, images (14 formats) |
+| Document parsing | Docling | PDF, DOCX, PPTX, Excel, HTML, images — Phase 2 |
 | UI | Streamlit | Chat-first interface |
 | Configuration | pydantic-settings | Type-safe `.env` config |
 | Prompt templating | Jinja2 | Separate `.j2` files, no inline strings |
@@ -375,13 +375,19 @@ uv run mypy src/
 
 ---
 
-## Roadmap (Phase 2)
+## Roadmap
 
-- ChromaDB integration for RAG (document embedding and retrieval)
-- Persistent memory across sessions (episodic + semantic) — feedback currently session-scoped, Phase 2 extends it across sessions
+See [ROADMAP.md](ROADMAP.md) for the full plan with rationale and sequencing.
+
+**Phase 2 priorities:**
+1. Cross-session feedback persistence — recommendation feedback currently resets on each session
+2. Persistent business profile — industry, size, constraints re-entered every session
+3. ChromaDB RAG — semantic retrieval of past analyses as context
+
+**Phase 3:**
 - LLM response streaming
-- Interactive process visualization
-- Multi-user collaboration
+- Process flowchart visualization
+- Opt-in benchmark comparison
 
 ---
 

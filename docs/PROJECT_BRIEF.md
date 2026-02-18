@@ -173,7 +173,7 @@ Phase 2 adds Learning Agent characteristics:
 - **Instructor** for structured LLM output (wraps provider SDKs, auto-validates Pydantic models, automatic retries with validation feedback)
 - **LangSmith** for agent observability (traces every node execution, state transitions, token usage)
 - **pydantic-settings** for type-safe configuration (replaces scattered `os.getenv()` calls)
-- **Docling** for universal document parsing (PDF, DOCX, Excel, PowerPoint, HTML, images)
+- **Docling** for universal document parsing (PDF, DOCX, Excel, PowerPoint, HTML, images) — integrated, Phase 2 UI exposure
 
 ### Frontend
 - **Streamlit** with chat-first interface (`st.chat_message`, `st.chat_input`)
@@ -311,7 +311,7 @@ processiq/
 │       │   ├── csv_loader.py      # CSV parsing with pandas
 │       │   ├── excel_loader.py    # Excel parsing with openpyxl
 │       │   ├── normalizer.py      # LLM-powered extraction with Instructor
-│       │   └── docling_parser.py  # Universal document parsing (14 formats)
+│       │   └── docling_parser.py  # Universal document parsing (Phase 2: PDF, DOCX, images)
 │       │
 │       ├── persistence/           # Session persistence
 │       │   ├── checkpointer.py    # LangGraph SqliteSaver wrapper
@@ -456,9 +456,9 @@ All users interact through the chat-first interface. The editable data table is 
 | Method | Phase 1 | User Skill | Notes |
 |--------|---------|------------|-------|
 | **Chat + file drop** | Primary | None | Default experience |
-| File upload (any format) | Via Docling | Basic | PDF, DOCX, Excel, images (14 formats) |
+| File upload (CSV/Excel) | Implemented | Basic | Pandas-based parsing |
+| File upload (PDF/DOCX/images) | Phase 2 | Basic | Via Docling (14 formats) |
 | Forms (edit mode) | For review/correction | None | After extraction, user confirms |
-| Raw CSV/JSON upload | Power-user | Technical | Advanced options panel |
 
 ### Smart Interviewer Pattern
 
@@ -550,8 +550,8 @@ Upload -> Parse (Docling/pandas) -> LLM extract to schema -> User reviews -> Pyd
 |---------|---------|---------|
 | CSV upload | Fast pandas path | Same |
 | Excel upload (.xlsx) | Pandas + LLM normalization | Multi-sheet, merged cells |
-| PDF/DOCX extraction | Via Docling | Same |
-| Image extraction | Via Docling OCR | Same |
+| PDF/DOCX extraction | Not exposed in UI | Via Docling |
+| Image extraction | Not exposed in UI | Via Docling OCR |
 | LLM schema normalization | Via Instructor | Same |
 | Clarification questions | Smart interviewer pattern | Full conversational interview |
 | Vector DB embedding | Not implemented | ChromaDB for RAG |
@@ -614,7 +614,6 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 - Pydantic models for ProcessStep, Constraints, AnalysisInsight
 - Config, logging, exceptions foundation
 - CSV/Excel parser with validation
-- Universal document parsing via Docling (PDF, DOCX, images — 14 formats)
 - LLM-powered extraction with Instructor (structured output, auto-retries)
 - Process metrics calculation (`analysis/metrics.py`)
 - LLM-based analysis via `analyze.j2` (pattern detection, waste vs value, root causes)
@@ -625,7 +624,7 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 ### Chat-First UI
 
 - Chat interface as primary interaction
-- File drop zone with 14 supported formats
+- File drop zone (CSV and Excel)
 - Smart interviewer pattern (extract OR clarify, never both)
 - Inline editable data table always visible after extraction
 - Advanced options sidebar (constraints, business context with revenue range, analysis mode, LLM provider)

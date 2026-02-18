@@ -12,73 +12,60 @@ flowchart TD
     %% ── 1. INPUT & INGESTION ──
     subgraph Ingestion ["1 · User Input & Ingestion"]
         direction TB
-        UI["Streamlit UI"]:::deterministic
-        FORMS["Forms<br>(structured entry)"]:::deterministic
-        FILES["CSV / Excel Upload<br>(power user)"]:::deterministic
-        CHAT["Text Description<br>(basic conversational)"]:::deterministic
+        UI["Streamlit UI<br>(chat-first)"]:::deterministic
+        FILES["File Upload<br>(CSV · Excel · PDF · Word · Images)"]:::deterministic
+        CHAT["Chat Description<br>(text)"]:::deterministic
 
-        UI --> FORMS
         UI --> FILES
         UI --> CHAT
 
-        FORMS --> VALID
-        FILES --> VALID
-        CHAT --> EXTRACT["LLM: Extract ProcessData"]:::agentic
-        EXTRACT --> REVIEW["User Reviews<br>Extracted Data"]:::deterministic
+        FILES --> PARSE["Parse<br>(Docling · pandas)"]:::deterministic
+        PARSE --> EXTRACT
+        CHAT --> EXTRACT["LLM: Extract ProcessData<br>(Instructor + extraction.j2)"]:::agentic
+        EXTRACT --> REVIEW["User Reviews &amp; Edits<br>Extracted Data Card"]:::deterministic
         REVIEW --> VALID
 
-        VALID(["Validated Pydantic Models"]):::deterministic
+        VALID(["Validated Pydantic Models<br>(ProcessData · Constraints · BusinessProfile)"]):::deterministic
     end
 
     %% ── 2. AGENT CORE (LANGGRAPH) ──
     subgraph Agent ["2 · Agent Orchestration — LangGraph"]
         direction TB
 
-        CTX{"1\. Sufficient<br>Context?"}:::decision
-        CTX -- "No" --> CLARIFY["Clarify with User"]:::agentic
-        CLARIFY -- "User replies" --> CTX
+        CTX{"check_context<br><br>Confidence ≥ threshold?"}:::decision
+        CTX -- "No → request_clarification" --> CLARIFY["request_clarification<br><br>LLM generates questions<br>(clarification.j2)"]:::agentic
+        CLARIFY -- "User replies → re-check" --> CTX
 
-        CTX -- "Yes" --> BOTTLENECK["Bottleneck Detection<br>(deterministic)"]:::deterministic
-        BOTTLENECK --> PRIORITY["2\. Multi-Bottleneck<br>Prioritization"]:::agentic
+        CTX -- "Yes → analyze" --> ANALYZE["analyze<br><br>1. Calculate metrics (deterministic)<br>2. LLM analysis (analyze.j2)<br>   — identifies issues &amp; root causes<br>   — generates recommendations + ROI<br>   — flags core value work<br>   — applies feedback history"]:::agentic
 
-        PRIORITY --> CONFLICT{"3\. Constraint<br>Conflicts?"}:::decision
-        CONFLICT -- "Yes" --> RESOLVE["Resolve or<br>Ask User"]:::agentic
-        RESOLVE --> CONFLICT
-
-        CONFLICT -- "No" --> ROI["ROI Calculation<br>(deterministic)"]:::deterministic
-
-        ROI --> CONF{"4\. Confidence<br>>= Threshold?"}:::decision
-        CONF -- "No" --> GAPS["Identify Gaps"]:::agentic
-        GAPS -- "User / external data" --> CTX
-
-        CONF -- "Yes" --> SUGGEST["Generate<br>Suggestions"]:::agentic
-        SUGGEST --> VALIDATE["Validate Against<br>Constraints"]:::deterministic
+        ANALYZE --> FINALIZE["finalize<br><br>Package AnalysisInsight<br>Set current_phase = complete"]:::deterministic
     end
 
     %% ── 3. KNOWLEDGE ENRICHMENT (Phase 2) ──
     subgraph Knowledge ["3 · Knowledge Enrichment — Phase 2"]
         direction TB
-        RAG["RAG / Knowledge Base"]:::phase2
+        RAG["RAG / Knowledge Base<br>(ChromaDB)"]:::phase2
         BENCH["Industry Benchmarks"]:::phase2
-        WEB["Web / External Sources"]:::phase2
     end
 
     %% ── 4. OUTPUT ──
     subgraph Output ["4 · Output & Transparency"]
         direction TB
-        RESULT["Suggestions + ROI Estimates<br>Confidence Scores<br>Reasoning Trace<br>Assumptions"]:::output
-        EXPORT["Export: CSV · A3 Report"]:::output
+        RESULT["Results Display<br><br>Process Summary · Issues · Recommendations<br>Core Value Work · Reasoning Trace<br>Confidence Score"]:::output
+        EXPORT["Export<br>CSV · Text · Markdown"]:::output
         RESULT --> EXPORT
     end
 
     %% ── Cross-subgraph connections ──
     VALID --> CTX
-    VALIDATE --> RESULT
+    FINALIZE --> RESULT
 
-    %% Knowledge feeds gap resolution (Phase 2)
-    GAPS -.-> RAG
-    GAPS -.-> BENCH
-    GAPS -.-> WEB
+    %% Feedback loop (session-scoped)
+    EXPORT -. "up/down votes on recommendations" .-> ANALYZE
+
+    %% Phase 2
+    CLARIFY -.-> RAG
+    CLARIFY -.-> BENCH
 
     %% ── Subgraph styling ──
     style Ingestion fill:#f9fdf9,stroke:#2d8a2d,stroke-width:2px
