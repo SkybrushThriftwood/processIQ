@@ -238,6 +238,24 @@ def _render_constraints_compact(constraints: Constraints | None) -> Constraints:
         key="adv_priority",
     )
 
+    # Additional free-text constraints
+    existing_custom = (
+        "\n".join(constraints.custom_constraints)
+        if constraints and constraints.custom_constraints
+        else ""
+    )
+    custom_text = st.text_area(
+        "Additional constraints",
+        value=existing_custom,
+        placeholder="One per line, e.g.:\nMust integrate with SAP\nCannot modify the billing module",
+        height=80,
+        key="adv_custom_constraints",
+        help="Any constraints not covered above. Each line is passed to the agent.",
+    )
+    custom_constraints = [
+        line.strip() for line in custom_text.splitlines() if line.strip()
+    ]
+
     return Constraints(
         budget_limit=float(budget_limit) if budget_limit else None,
         cannot_hire=cannot_hire,
@@ -247,7 +265,7 @@ def _render_constraints_compact(constraints: Constraints | None) -> Constraints:
         max_error_rate_increase_pct=constraints.max_error_rate_increase_pct
         if constraints
         else 0.0,
-        custom_constraints=constraints.custom_constraints if constraints else [],
+        custom_constraints=custom_constraints,
     )
 
 

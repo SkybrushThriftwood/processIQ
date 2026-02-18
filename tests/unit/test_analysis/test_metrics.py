@@ -8,8 +8,7 @@ from processiq.analysis.metrics import (
     calculate_process_metrics,
     format_metrics_for_llm,
 )
-from processiq.models import ProcessData, ProcessStep
-
+from processiq.models import ProcessData
 
 # ---------------------------------------------------------------------------
 # Step type inference

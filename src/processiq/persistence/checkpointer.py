@@ -146,7 +146,7 @@ def delete_thread(thread_id: str) -> bool:
             (thread_id,),
         )
         _connection.commit()
-        deleted = cursor.rowcount > 0
+        deleted = bool(cursor.rowcount > 0)
         if deleted:
             logger.info("Deleted checkpoints for thread: %s", thread_id)
         return deleted

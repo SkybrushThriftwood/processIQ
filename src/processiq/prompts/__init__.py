@@ -60,7 +60,7 @@ def render_prompt(template_name: str, **kwargs: Any) -> str:
 
     try:
         template = _env.get_template(template_file)
-        rendered = template.render(**kwargs)
+        rendered: str = template.render(**kwargs)
         logger.debug("Rendered template: %s", template_name)
         return rendered.strip()
     except TemplateNotFound:

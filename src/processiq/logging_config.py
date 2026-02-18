@@ -20,6 +20,7 @@ Usage:
 import logging
 import sys
 
+
 def setup_logging(level: str = "INFO") -> None:
     """Configure logging for the entire application.
 

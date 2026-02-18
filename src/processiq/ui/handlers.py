@@ -5,6 +5,7 @@ Contains all logic for handling user inputs: text, file uploads, button clicks.
 
 import logging
 import re
+from typing import Any
 
 from processiq.agent.interface import (
     AgentResponse,
@@ -12,6 +13,7 @@ from processiq.agent.interface import (
     extract_from_file,
     extract_from_text,
 )
+from processiq.models.process import ProcessData
 from processiq.ui.components import (
     create_agent_message,
     create_analysis_message,
@@ -154,7 +156,7 @@ _FILE_SIZE_WARNING_BYTES = 10 * 1024 * 1024  # 10 MB
 _FILE_SIZE_LIMIT_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
-def handle_file_upload(uploaded_file) -> bool:
+def handle_file_upload(uploaded_file: Any) -> bool:
     """Handle file upload from user.
 
     Args:
@@ -228,7 +230,9 @@ def handle_file_upload(uploaded_file) -> bool:
             parts.append(f"added {new_count} new steps")
         merge_desc = " and ".join(parts) if parts else "merged data"
         add_message(
-            create_status_message(f"Merged {file_name} with existing data: {merge_desc}.")
+            create_status_message(
+                f"Merged {file_name} with existing data: {merge_desc}."
+            )
         )
 
     _handle_extraction_response(response)
@@ -236,6 +240,7 @@ def handle_file_upload(uploaded_file) -> bool:
     # Clear the file from the uploader widget by incrementing the key counter.
     # This forces Streamlit to create a new widget on the next rerun.
     import streamlit as st
+
     st.session_state.file_upload_key_counter = (
         st.session_state.get("file_upload_key_counter", 0) + 1
     )
@@ -265,10 +270,15 @@ def handle_estimate_button() -> None:
         return
 
     # Snapshot before estimation for comparison
-    def _step_snapshot(steps):
+    def _step_snapshot(steps: list[Any]) -> list[tuple[Any, ...]]:
         return [
-            (s.step_name, s.average_time_hours, s.cost_per_instance,
-             s.error_rate_pct, s.resources_needed)
+            (
+                s.step_name,
+                s.average_time_hours,
+                s.cost_per_instance,
+                s.error_rate_pct,
+                s.resources_needed,
+            )
             for s in steps
         ]
 
@@ -305,18 +315,17 @@ def handle_estimate_button() -> None:
 
     # Check if data actually changed
     new_data = get_process_data()
-    if new_data:
-        if _step_snapshot(new_data.steps) == old_snapshot:
-            add_message(
-                create_agent_message(
-                    "All values that can be reliably estimated are already filled in. "
-                    "You can adjust any values directly in the table, or proceed to analysis."
-                )
+    if new_data and _step_snapshot(new_data.steps) == old_snapshot:
+        add_message(
+            create_agent_message(
+                "All values that can be reliably estimated are already filled in. "
+                "You can adjust any values directly in the table, or proceed to analysis."
             )
+        )
 
 
 def _protect_existing_values(
-    new_data: "ProcessData",
+    new_data: ProcessData,
     original_values: dict[str, dict[str, float]],
 ) -> None:
     """Restore user-provided values the LLM may have changed during estimation.
@@ -548,20 +557,15 @@ def _handle_continuing_input(user_input: str) -> None:
 
         if modified:
             set_constraints(constraints)
-            add_message(
-                create_status_message("Re-running analysis with updated constraints...")
+
+        # Always re-run: sidebar constraints, business profile, and
+        # recommendation feedback are already in session state.
+        add_message(
+            create_status_message(
+                "Re-running analysis with current constraints and feedback..."
             )
-            _run_analysis()
-        else:
-            # User said "re-analyze" but we couldn't parse specific changes
-            add_message(
-                create_agent_message(
-                    "I can re-run the analysis with different constraints. Try something like:\n"
-                    "- 'Re-analyze with a $5000 budget'\n"
-                    "- 'What if we can't hire new staff?'\n"
-                    "- 'Try again with focus on time reduction'"
-                )
-            )
+        )
+        _run_analysis()
     else:
         # Follow-up question — send to LLM with analysis context
         _handle_followup_question(user_input)

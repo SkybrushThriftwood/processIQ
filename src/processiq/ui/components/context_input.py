@@ -66,7 +66,7 @@ def render_context_input() -> None:
         # Industry selection
         industry_options = list(INDUSTRY_LABELS.keys())
         current_industry_index = 0
-        if current:
+        if current and current.industry is not None:
             with contextlib.suppress(ValueError):
                 current_industry_index = industry_options.index(current.industry)
 
@@ -91,7 +91,7 @@ def render_context_input() -> None:
         # Company size
         size_options = list(COMPANY_SIZE_LABELS.keys())
         current_size_index = 0
-        if current:
+        if current and current.company_size is not None:
             with contextlib.suppress(ValueError):
                 current_size_index = size_options.index(current.company_size)
 
@@ -195,17 +195,14 @@ def render_context_input() -> None:
 
 def _render_context_summary(profile: BusinessProfile) -> None:
     """Render a summary of the business context."""
-    industry_label = (
-        profile.custom_industry
-        or (INDUSTRY_LABELS[profile.industry] if profile.industry else None)
+    industry_label = profile.custom_industry or (
+        INDUSTRY_LABELS[profile.industry] if profile.industry else None
     )
     summary_parts = []
     if industry_label:
         summary_parts.append(industry_label)
     if profile.company_size:
-        summary_parts.append(
-            COMPANY_SIZE_LABELS[profile.company_size].split(" (")[0]
-        )
+        summary_parts.append(COMPANY_SIZE_LABELS[profile.company_size].split(" (")[0])
     summary_parts.append(
         REGULATORY_LABELS[profile.regulatory_environment] + " regulation"
     )

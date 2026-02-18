@@ -39,7 +39,7 @@ def _get_llm_model(
     task: str | None = None,
     analysis_mode: str | None = None,
     provider: str | None = None,
-):
+) -> Any:
     """Get the LLM model, with lazy import to avoid circular dependencies.
 
     Args:
@@ -138,9 +138,7 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
     )
 
     # Build context for LLM
-    business_context = (
-        _format_business_context_for_llm(profile) if profile else None
-    )
+    business_context = _format_business_context_for_llm(profile) if profile else None
     constraints_summary = (
         _format_constraints_for_llm(constraints) if constraints else None
     )
@@ -230,7 +228,7 @@ def finalize_analysis_node(state: AgentState) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _format_feedback_history(feedback: dict[str, dict]) -> str | None:
+def _format_feedback_history(feedback: dict[str, dict[str, object]]) -> str | None:
     """Format recommendation feedback into text for the LLM prompt.
 
     Args:
@@ -264,6 +262,56 @@ def _format_feedback_history(feedback: dict[str, dict]) -> str | None:
             lines.append(f'- "{title}"')
 
     return "\n".join(lines) if lines else None
+
+
+def _normalize_issue_links(insight: AnalysisInsight) -> AnalysisInsight:
+    """Fix addresses_issue fields that don't exactly match any issue title.
+
+    The LLM sometimes generates addresses_issue with slightly different casing
+    or wording than the issue.title it was meant to reference. This breaks the
+    exact-match grouping in the UI, leaving recommendations unlinked.
+
+    Resolution order:
+    1. Exact match (already correct — leave as-is)
+    2. Case-insensitive match
+    3. Substring match (addresses_issue is contained in a title, or vice versa)
+    4. Leave unchanged (unlinked recommendation, renders separately)
+    """
+    if not insight.issues or not insight.recommendations:
+        return insight
+
+    issue_titles = [i.title for i in insight.issues]
+    title_lower = {t.lower(): t for t in issue_titles}
+
+    for rec in insight.recommendations:
+        ai = rec.addresses_issue
+        if not ai:
+            continue
+
+        # 1. Exact match — nothing to do
+        if ai in issue_titles:
+            continue
+
+        # 2. Case-insensitive match
+        canonical = title_lower.get(ai.lower())
+        if canonical:
+            logger.debug(
+                "Normalized addresses_issue %r -> %r (case-insensitive)", ai, canonical
+            )
+            rec.addresses_issue = canonical
+            continue
+
+        # 3. Substring match
+        ai_lower = ai.lower()
+        for title in issue_titles:
+            if ai_lower in title.lower() or title.lower() in ai_lower:
+                logger.debug(
+                    "Normalized addresses_issue %r -> %r (substring)", ai, title
+                )
+                rec.addresses_issue = title
+                break
+
+    return insight
 
 
 def _run_llm_analysis(
@@ -340,7 +388,7 @@ def _run_llm_analysis(
                 return None
 
             logger.info("LLM analysis parsed successfully via structured output")
-            return insight
+            return _normalize_issue_links(insight)
 
         return None
 
@@ -428,5 +476,10 @@ def _format_constraints_for_llm(constraints: Constraints) -> str:
 
     if constraints.priority:
         parts.append(f"Priority: {constraints.priority.value}")
+
+    if constraints.custom_constraints:
+        parts.append(
+            "Additional constraints: " + "; ".join(constraints.custom_constraints)
+        )
 
     return "; ".join(parts) if parts else "No specific constraints"

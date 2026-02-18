@@ -18,8 +18,8 @@ from processiq.models import AnalysisInsight
 from processiq.models.insight import Issue, NotAProblem, Recommendation
 from processiq.ui.state import (
     get_analysis_insight,
-    get_recommendation_feedback,
     get_reasoning_trace,
+    get_recommendation_feedback,
     set_recommendation_feedback,
 )
 from processiq.ui.styles import COLORS, get_severity_color
@@ -418,8 +418,6 @@ def _render_expandable_details(insight: AnalysisInsight) -> None:
 
     # Reasoning trace
     _render_reasoning_trace()
-
-
 
 
 def _render_reasoning_trace() -> None:

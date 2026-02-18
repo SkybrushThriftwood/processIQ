@@ -57,7 +57,7 @@ class ChatMessage:
     data: Any = None  # ProcessData, etc.
     analysis_insight: AnalysisInsight | None = None
     file_name: str | None = None
-    questions: list[dict] | None = None
+    questions: list[dict[str, Any]] | None = None
     is_editable: bool = False
     confidence: float | None = None
     improvement_suggestions: str | None = None  # LLM suggestions for improving input
@@ -154,7 +154,7 @@ def create_analysis_message(
 
 def create_clarification_message(
     content: str,
-    questions: list[dict],
+    questions: list[dict[str, Any]],
 ) -> ChatMessage:
     """Create a clarification request message."""
     return ChatMessage(
@@ -302,9 +302,21 @@ def _render_data_card(message: ChatMessage) -> None:
 
         # Show None (blank cell) for fields that are zero AND marked as estimated
         # This makes it visually obvious what data is missing
-        time_val = None if step.average_time_hours == 0 and "average_time_hours" in estimated else step.average_time_hours
-        cost_val = None if step.cost_per_instance == 0 and "cost_per_instance" in estimated else step.cost_per_instance
-        freq_val = None if step.error_rate_pct == 0 and "error_rate_pct" in estimated else step.error_rate_pct
+        time_val = (
+            None
+            if step.average_time_hours == 0 and "average_time_hours" in estimated
+            else step.average_time_hours
+        )
+        cost_val = (
+            None
+            if step.cost_per_instance == 0 and "cost_per_instance" in estimated
+            else step.cost_per_instance
+        )
+        freq_val = (
+            None
+            if step.error_rate_pct == 0 and "error_rate_pct" in estimated
+            else step.error_rate_pct
+        )
 
         # Only mark with * if the LLM actually generated non-zero values for estimated fields,
         # not when it just defaulted them to 0 (i.e., the user didn't provide the data at all)
@@ -323,7 +335,9 @@ def _render_data_card(message: ChatMessage) -> None:
         rows.append(
             {
                 "Step #": step_numbers[idx],
-                "Step Name": f"{step.step_name} *" if step_has_estimates else step.step_name,
+                "Step Name": f"{step.step_name} *"
+                if step_has_estimates
+                else step.step_name,
                 "Time (hrs)": time_val,
                 "Cost ($)": cost_val,
                 "Problem Freq.": freq_val,
@@ -493,7 +507,9 @@ def _apply_table_edits(
 
             # Remove fields from estimated_fields if the user changed the value
             # (user-edited values are no longer AI-estimated)
-            estimated = list(getattr(orig_step, "estimated_fields", [])) if orig_step else []
+            estimated = (
+                list(getattr(orig_step, "estimated_fields", [])) if orig_step else []
+            )
             if orig_step and estimated:
                 field_map = {
                     "average_time_hours": (new_time, orig_step.average_time_hours),
@@ -515,8 +531,12 @@ def _apply_table_edits(
                     else int(resources_val),
                     depends_on=depends_on,
                     estimated_fields=estimated,
-                    group_id=getattr(orig_step, "group_id", None) if orig_step else None,
-                    group_type=getattr(orig_step, "group_type", None) if orig_step else None,
+                    group_id=getattr(orig_step, "group_id", None)
+                    if orig_step
+                    else None,
+                    group_type=getattr(orig_step, "group_type", None)
+                    if orig_step
+                    else None,
                 )
             )
 
@@ -677,7 +697,8 @@ def render_chat_input(
     key: str = "chat_input",
 ) -> str | None:
     """Render the chat input box and return user input."""
-    return st.chat_input(placeholder, key=key)
+    result = st.chat_input(placeholder, key=key)
+    return str(result) if result is not None else None
 
 
 def render_file_uploader(
@@ -739,14 +760,58 @@ def render_typing_indicator() -> None:
 
 
 def render_welcome_message() -> None:
-    """Render the initial welcome message."""
+    """Render the initial welcome message with a prominent capability overview."""
+    # Prominent intro block — shown once on the empty welcome screen
+    st.markdown(
+        f"""
+        <div style="
+            background: {COLORS['background_alt']};
+            border: 1px solid {COLORS['border']};
+            border-radius: 0.5rem;
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.5rem;
+        ">
+            <p style="
+                font-size: 1rem;
+                color: {COLORS['text']};
+                margin: 0 0 1rem 0;
+                font-weight: 500;
+            ">What can ProcessIQ do for you?</p>
+            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 160px;">
+                    <p style="font-weight: 600; color: {COLORS['text']}; margin: 0 0 0.25rem 0;">
+                        Find bottlenecks
+                    </p>
+                    <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.875rem;">
+                        Identify which steps slow down or cost the most across your workflow.
+                    </p>
+                </div>
+                <div style="flex: 1; min-width: 160px;">
+                    <p style="font-weight: 600; color: {COLORS['text']}; margin: 0 0 0.25rem 0;">
+                        Estimate ROI
+                    </p>
+                    <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.875rem;">
+                        See projected time and cost savings before committing to any change.
+                    </p>
+                </div>
+                <div style="flex: 1; min-width: 160px;">
+                    <p style="font-weight: 600; color: {COLORS['text']}; margin: 0 0 0.25rem 0;">
+                        Actionable recommendations
+                    </p>
+                    <p style="color: {COLORS['text_muted']}; margin: 0; font-size: 0.875rem;">
+                        Prioritized suggestions that respect your budget, timeline, and constraints.
+                    </p>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Chat bubble — the actual conversation starter
     with st.chat_message("assistant"):
         st.markdown(
-            """
-            Tell me about a process you'd like to improve, or drop a file describing it.
-
-            I can analyze workflows to find bottlenecks and estimate the ROI of potential improvements.
-            """
+            "Tell me about a process you'd like to improve, or drop a file describing it."
         )
 
 

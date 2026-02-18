@@ -28,38 +28,46 @@ def export_insight_csv(insight: AnalysisInsight) -> bytes:
 
     # Issues
     writer.writerow(["ISSUES"])
-    writer.writerow(["Title", "Severity", "Description", "Affected Steps", "Root Cause"])
+    writer.writerow(
+        ["Title", "Severity", "Description", "Affected Steps", "Root Cause"]
+    )
     for issue in insight.issues:
-        writer.writerow([
-            issue.title,
-            issue.severity,
-            issue.description,
-            "; ".join(issue.affected_steps),
-            issue.root_cause_hypothesis,
-        ])
+        writer.writerow(
+            [
+                issue.title,
+                issue.severity,
+                issue.description,
+                "; ".join(issue.affected_steps),
+                issue.root_cause_hypothesis,
+            ]
+        )
     writer.writerow([])
 
     # Recommendations
     writer.writerow(["RECOMMENDATIONS"])
-    writer.writerow([
-        "Title",
-        "Addresses Issue",
-        "Feasibility",
-        "Description",
-        "Expected Benefit",
-        "Risks",
-        "Next Steps",
-    ])
+    writer.writerow(
+        [
+            "Title",
+            "Addresses Issue",
+            "Feasibility",
+            "Description",
+            "Expected Benefit",
+            "Risks",
+            "Next Steps",
+        ]
+    )
     for rec in insight.recommendations:
-        writer.writerow([
-            rec.title,
-            rec.addresses_issue,
-            rec.feasibility,
-            rec.description,
-            rec.expected_benefit,
-            "; ".join(rec.risks),
-            "; ".join(rec.concrete_next_steps),
-        ])
+        writer.writerow(
+            [
+                rec.title,
+                rec.addresses_issue,
+                rec.feasibility,
+                rec.description,
+                rec.expected_benefit,
+                "; ".join(rec.risks),
+                "; ".join(rec.concrete_next_steps),
+            ]
+        )
     writer.writerow([])
 
     # Core value work
@@ -92,26 +100,30 @@ def export_recommendations_csv(recommendations: list[Recommendation]) -> bytes:
     output = io.StringIO()
     writer = csv.writer(output)
 
-    writer.writerow([
-        "Title",
-        "Addresses Issue",
-        "Feasibility",
-        "Description",
-        "Expected Benefit",
-        "Risks",
-        "Next Steps",
-    ])
+    writer.writerow(
+        [
+            "Title",
+            "Addresses Issue",
+            "Feasibility",
+            "Description",
+            "Expected Benefit",
+            "Risks",
+            "Next Steps",
+        ]
+    )
 
     for rec in recommendations:
-        writer.writerow([
-            rec.title,
-            rec.addresses_issue,
-            rec.feasibility,
-            rec.description,
-            rec.expected_benefit,
-            "; ".join(rec.risks),
-            "; ".join(rec.concrete_next_steps),
-        ])
+        writer.writerow(
+            [
+                rec.title,
+                rec.addresses_issue,
+                rec.feasibility,
+                rec.description,
+                rec.expected_benefit,
+                "; ".join(rec.risks),
+                "; ".join(rec.concrete_next_steps),
+            ]
+        )
 
     logger.info("Exported %d recommendations to CSV", len(recommendations))
     return output.getvalue().encode("utf-8")

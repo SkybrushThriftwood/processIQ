@@ -51,9 +51,15 @@ class TestMapColumns:
     def test_standard_names_unchanged(self):
         import pandas as pd
 
-        df = pd.DataFrame(columns=["step_name", "average_time_hours", "resources_needed"])
+        df = pd.DataFrame(
+            columns=["step_name", "average_time_hours", "resources_needed"]
+        )
         mapped = _map_columns(df)
-        assert list(mapped.columns) == ["step_name", "average_time_hours", "resources_needed"]
+        assert list(mapped.columns) == [
+            "step_name",
+            "average_time_hours",
+            "resources_needed",
+        ]
 
     def test_aliases_mapped(self):
         import pandas as pd
@@ -74,7 +80,9 @@ class TestValidateRequiredColumns:
     def test_all_present(self):
         import pandas as pd
 
-        df = pd.DataFrame(columns=["step_name", "average_time_hours", "resources_needed"])
+        df = pd.DataFrame(
+            columns=["step_name", "average_time_hours", "resources_needed"]
+        )
         # Should not raise
         _validate_required_columns(df)
 

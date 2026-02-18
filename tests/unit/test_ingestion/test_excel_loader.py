@@ -6,7 +6,11 @@ import pytest
 from openpyxl import Workbook
 
 from processiq.exceptions import ExtractionError
-from processiq.ingestion.excel_loader import list_sheets, load_excel, load_excel_from_bytes
+from processiq.ingestion.excel_loader import (
+    list_sheets,
+    load_excel,
+    load_excel_from_bytes,
+)
 
 
 def _create_xlsx(rows: list[list], sheet_name: str = "Sheet1") -> bytes:

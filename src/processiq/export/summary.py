@@ -153,7 +153,9 @@ def export_insight_markdown(insight: AnalysisInsight) -> str:
             lines.append(issue.description)
             if issue.root_cause_hypothesis:
                 lines.append("")
-                lines.append(f"**Root cause hypothesis:** {issue.root_cause_hypothesis}")
+                lines.append(
+                    f"**Root cause hypothesis:** {issue.root_cause_hypothesis}"
+                )
             if issue.evidence:
                 lines.append("")
                 lines.append("**Evidence:**")
@@ -196,7 +198,9 @@ def export_insight_markdown(insight: AnalysisInsight) -> str:
     if insight.not_problems:
         lines.append("## Core Value Work")
         lines.append("")
-        lines.append("*These steps may look like bottlenecks but are where real value is created:*")
+        lines.append(
+            "*These steps may look like bottlenecks but are where real value is created:*"
+        )
         lines.append("")
         for np in insight.not_problems:
             lines.append(f"- **{np.step_name}:** {np.why_not_a_problem}")

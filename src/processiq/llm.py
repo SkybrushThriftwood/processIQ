@@ -70,7 +70,7 @@ def extract_text_content(response: Any) -> str:
         for key in ("reasoning_content", "content", "output"):
             if key in kwargs and isinstance(kwargs[key], str) and kwargs[key].strip():
                 logger.info("Extracted content from additional_kwargs['%s']", key)
-                return kwargs[key]
+                return str(kwargs[key])
 
     # Last resort: stringify the whole response
     fallback = str(response).strip()

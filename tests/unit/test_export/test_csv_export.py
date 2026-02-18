@@ -38,13 +38,17 @@ class TestExportRecommendationsCsv:
         assert isinstance(result, bytes)
 
     def test_header_row(self, sample_insight):
-        result = export_recommendations_csv(sample_insight.recommendations).decode("utf-8")
+        result = export_recommendations_csv(sample_insight.recommendations).decode(
+            "utf-8"
+        )
         lines = result.strip().split("\n")
         assert "Title" in lines[0]
         assert "Feasibility" in lines[0]
 
     def test_row_count(self, sample_insight):
-        result = export_recommendations_csv(sample_insight.recommendations).decode("utf-8")
+        result = export_recommendations_csv(sample_insight.recommendations).decode(
+            "utf-8"
+        )
         lines = result.strip().split("\n")
         # 1 header + 1 data row
         assert len(lines) == 2

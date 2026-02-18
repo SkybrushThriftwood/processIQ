@@ -98,7 +98,7 @@ def create_thread_metadata(
     user_id: str,
     conversation_id: str,
     process_name: str | None = None,
-) -> dict:
+) -> dict[str, str | None]:
     """Create metadata for a conversation thread.
 
     This metadata can be stored alongside the thread for

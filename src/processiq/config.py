@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr
@@ -50,9 +51,7 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr = SecretStr("")
     openai_api_key: SecretStr = SecretStr("")
     langsmith_api_key: SecretStr = SecretStr("")
-    langsmith_endpoint: str = (
-        "https://eu.api.smith.langchain.com"
-    )
+    langsmith_endpoint: str = "https://eu.api.smith.langchain.com"
     langsmith_tracing: bool = True
     langchain_project: str = "processiq"
 
@@ -169,3 +168,15 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Propagate LangSmith config to os.environ so the SDK can auto-detect it.
+# pydantic-settings reads .env into Python attributes but does NOT set os.environ,
+# which is what the LangSmith SDK checks directly.
+_langsmith_key = settings.langsmith_api_key.get_secret_value()
+if _langsmith_key:
+    os.environ.setdefault("LANGSMITH_API_KEY", _langsmith_key)
+if settings.langsmith_tracing:
+    os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+    os.environ.setdefault("LANGSMITH_TRACING", "true")
+os.environ.setdefault("LANGSMITH_ENDPOINT", settings.langsmith_endpoint)
+os.environ.setdefault("LANGCHAIN_PROJECT", settings.langchain_project)

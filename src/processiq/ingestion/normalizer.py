@@ -12,7 +12,7 @@ Supports integration with Docling for document parsing:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import instructor
 from anthropic import Anthropic
@@ -78,7 +78,7 @@ class ExtractedStep(BaseModel):
     notes: str = Field(default="", description="Any caveats or assumptions made")
 
     @model_validator(mode="after")
-    def validate_group_fields(self) -> "ExtractedStep":
+    def validate_group_fields(self) -> ExtractedStep:
         """Ensure group_id and group_type are both set or both unset."""
         if (self.group_id is None) != (self.group_type is None):
             # Auto-fix: if one is set but not the other, clear both
@@ -211,13 +211,16 @@ def _extract_with_anthropic(
 
     logger.debug("Extracting with Anthropic model: %s (temperature=0)", model)
 
-    result = client.messages.create(
-        model=model,
-        max_tokens=4096,
-        temperature=0,  # Maximize schema adherence for extraction
-        max_retries=3,  # Instructor retries with validation feedback
-        messages=[{"role": "user", "content": prompt}],
-        response_model=ExtractionResponse,
+    result = cast(
+        ExtractionResponse,
+        client.messages.create(
+            model=model,
+            max_tokens=4096,
+            temperature=0,  # Maximize schema adherence for extraction
+            max_retries=3,  # Instructor retries with validation feedback
+            messages=[{"role": "user", "content": prompt}],
+            response_model=ExtractionResponse,
+        ),
     )
 
     if result.response_type == "extracted" and result.extraction:
@@ -265,7 +268,7 @@ def _extract_with_openai(
     )
 
     # GPT-5/o-series: max_completion_tokens only, no temperature override
-    create_kwargs: dict = {
+    create_kwargs: dict[str, object] = {
         "model": model,
         "max_retries": 3,
         "messages": [{"role": "user", "content": prompt}],
@@ -277,7 +280,7 @@ def _extract_with_openai(
         create_kwargs["max_tokens"] = 4096
         create_kwargs["temperature"] = 0
 
-    result = client.chat.completions.create(**create_kwargs)
+    result = cast(ExtractionResponse, client.chat.completions.create(**create_kwargs))
 
     if result.response_type == "extracted" and result.extraction:
         logger.info("Extracted %d steps with OpenAI", len(result.extraction.steps))
@@ -346,10 +349,7 @@ def _infer_missing_dependencies(steps: list[ProcessStep]) -> None:
         prev = steps[i - 1]
         if prev.group_id and prev.group_type == "alternative":
             # Depend on all alternatives in that group
-            group_deps = [
-                s.step_name for s in steps[:i]
-                if s.group_id == prev.group_id
-            ]
+            group_deps = [s.step_name for s in steps[:i] if s.group_id == prev.group_id]
             step.depends_on = group_deps
             filled += 1
         else:

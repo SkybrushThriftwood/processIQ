@@ -7,7 +7,7 @@ rather than chat-style interaction.
 
 import contextlib
 import logging
-from typing import Any
+from typing import Any, Literal, cast
 
 import streamlit as st
 
@@ -238,7 +238,7 @@ def create_clarification_bundle_from_gaps(
         question = ClarifyingQuestion(
             id=f"gap_{i}",
             question=gap,
-            input_type=input_type,
+            input_type=cast(Literal["text", "number", "select", "boolean"], input_type),
             options=options,
             hint=hint,
             required=False,

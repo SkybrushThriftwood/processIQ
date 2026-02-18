@@ -11,11 +11,6 @@ from processiq.analysis.confidence import (
     identify_critical_gaps,
 )
 from processiq.models import (
-    BusinessProfile,
-    CompanySize,
-    Constraints,
-    Industry,
-    Priority,
     ProcessData,
     ProcessStep,
 )
@@ -79,7 +74,9 @@ class TestConfidenceResult:
 
 
 class TestCalculateConfidence:
-    def test_full_data_higher_score(self, simple_process, strict_constraints, full_profile):
+    def test_full_data_higher_score(
+        self, simple_process, strict_constraints, full_profile
+    ):
         result = calculate_confidence(simple_process, strict_constraints, full_profile)
         assert result.score > 0.5
 
@@ -122,7 +119,9 @@ class TestCalculateConfidence:
         assert "constraints_completeness" in result.breakdown
         assert "profile_completeness" in result.breakdown
 
-    def test_score_between_0_and_1(self, creative_agency_process, strict_constraints, full_profile):
+    def test_score_between_0_and_1(
+        self, creative_agency_process, strict_constraints, full_profile
+    ):
         result = calculate_confidence(
             creative_agency_process, strict_constraints, full_profile
         )
@@ -154,7 +153,9 @@ class TestCalculateConfidence:
         )
         r1 = calculate_confidence(with_cost)
         r2 = calculate_confidence(without_cost)
-        assert r1.breakdown["process_completeness"] > r2.breakdown["process_completeness"]
+        assert (
+            r1.breakdown["process_completeness"] > r2.breakdown["process_completeness"]
+        )
 
 
 class TestIdentifyCriticalGaps:
