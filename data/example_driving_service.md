@@ -34,9 +34,26 @@ Upload `data/operations_costs_2025.xlsx` -- this is an existing internal cost re
 
 Click "Confirm & Analyze" to run the analysis.
 
-## Step 4: Follow-Up
+## Step 4: Feedback Loop Demo
 
-After reviewing results, demonstrate one of:
-- Edit a value directly in the table (e.g., adjust a cost), then re-analyze
+After reviewing results:
+
+1. Find the recommendation "Automate Email Processing" (or whichever automation rec appears)
+2. Click **"Not useful"** → type reason: *"We already use an automation tool"* → press Enter
+3. Find another recommendation you liked → click **"Helpful"**
+4. In the sidebar, add a constraint: *"No new hires until Q3"*
+5. Type in the chat: *"Re-analyze with those constraints"*
+6. Compare the new results — the rejected recommendation should not reappear; the accepted type should be reinforced
+
+To verify the feedback injection without the UI, run:
+
+```bash
+uv run python scripts/demo_feedback_loop.py
+```
+
+This prints the exact text block injected into the LLM prompt.
+
+## Step 5: Follow-Up
+
 - Ask a follow-up question about a recommendation
-- Change constraints in the sidebar and re-analyze
+- Edit a value directly in the table (e.g., adjust a cost), then re-analyze

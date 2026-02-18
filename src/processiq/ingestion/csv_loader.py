@@ -8,7 +8,7 @@ import logging
 import re
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import BinaryIO, cast
+from typing import BinaryIO
 
 import pandas as pd
 from pydantic import ValidationError as PydanticValidationError
@@ -197,7 +197,7 @@ def _parse_csv_content(
             content = content.decode(encoding)
 
         # Create StringIO for pandas (content is guaranteed to be str after decode)
-        buffer = StringIO(cast(str, content))
+        buffer = StringIO(content)
 
         # Read CSV with common options
         df = pd.read_csv(
@@ -319,7 +319,7 @@ def _df_to_process_steps(df: pd.DataFrame) -> list[ProcessStep]:
             step = ProcessStep(**step_data)  # type: ignore[misc]
             steps.append(step)
         except PydanticValidationError as e:
-            row_num = int(idx) + 2 if isinstance(idx, (int, float)) else idx
+            row_num = int(idx) + 2 if isinstance(idx, int | float) else idx
             errors.append(f"Row {row_num}: {e.error_count()} validation error(s)")
             logger.warning("Validation error in row %s: %s", row_num, e)
 
@@ -365,7 +365,7 @@ def load_csv(
     logger.info("Loading CSV from %s", type(source).__name__)
 
     # Read content from source
-    if isinstance(source, (str, Path)):
+    if isinstance(source, str | Path):
         path = Path(source)
         if not path.exists():
             raise ExtractionError(
@@ -378,14 +378,14 @@ def load_csv(
         content = source
     else:
         # Must be BinaryIO (file-like object) - all other types handled above
-        file_obj: BinaryIO = source  # type: ignore[assignment]
+        file_obj: BinaryIO = source
         content = file_obj.read()
         file_obj.seek(0)  # Reset for potential re-read
         # Ensure content is bytes
         if not isinstance(content, bytes):
             content = (
                 bytes(content)
-                if isinstance(content, (bytearray, memoryview))
+                if isinstance(content, bytearray | memoryview)
                 else content.encode("utf-8")
             )
 

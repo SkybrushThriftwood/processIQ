@@ -85,7 +85,7 @@ def _df_to_process_steps(df: pd.DataFrame) -> list[ProcessStep]:
             step = ProcessStep(**step_data)  # type: ignore[misc]
             steps.append(step)
         except PydanticValidationError as e:
-            row_num = int(idx) + 2 if isinstance(idx, (int, float)) else idx
+            row_num = int(idx) + 2 if isinstance(idx, int | float) else idx
             errors.append(f"Row {row_num}: {e.error_count()} validation error(s)")
             logger.warning("Validation error in row %s: %s", row_num, e)
 
@@ -130,7 +130,7 @@ def load_excel(
     logger.info("Loading Excel from %s", type(source).__name__)
 
     # Prepare source for pandas
-    if isinstance(source, (str, Path)):
+    if isinstance(source, str | Path):
         path = Path(source)
         if not path.exists():
             raise ExtractionError(
@@ -143,14 +143,14 @@ def load_excel(
         excel_source = BytesIO(source)
     else:
         # Must be BinaryIO (file-like object) - all other types handled above
-        file_obj: BinaryIO = source  # type: ignore[assignment]
+        file_obj: BinaryIO = source
         content = file_obj.read()
         file_obj.seek(0)
         # Excel files are binary; content should always be bytes
         if not isinstance(content, bytes):
             content = (
                 bytes(content)
-                if isinstance(content, (bytearray, memoryview))
+                if isinstance(content, bytearray | memoryview)
                 else content.encode("utf-8")
             )
         excel_source = BytesIO(content)
@@ -210,7 +210,7 @@ def load_excel(
         )
 
     # Clean column names (strip whitespace)
-    df.columns = [str(c).strip() for c in df.columns]
+    df.columns = pd.Index([str(c).strip() for c in df.columns])
 
     # Drop rows that are completely empty
     df = df.dropna(how="all")
@@ -266,7 +266,7 @@ def list_sheets(source: str | Path | BinaryIO | bytes) -> list[str]:
         >>> sheets = list_sheets("multi_sheet.xlsx")
         >>> print(sheets)  # ['Process Data', 'Constraints', 'Notes']
     """
-    if isinstance(source, (str, Path)):
+    if isinstance(source, str | Path):
         path = Path(source)
         if not path.exists():
             raise ExtractionError(

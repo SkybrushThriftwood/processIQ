@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import streamlit as st
 
@@ -152,7 +152,7 @@ def get_user_id() -> str:
     Returns:
         User ID string. If not set, generates a new one.
     """
-    user_id = st.session_state.get("user_id")
+    user_id = cast(str | None, st.session_state.get("user_id"))
     if user_id is None:
         user_id = generate_user_id()
         st.session_state.user_id = user_id
@@ -184,7 +184,7 @@ def set_chat_state(state: ChatState) -> None:
 
 def get_messages() -> list[Any]:
     """Get all conversation messages."""
-    return st.session_state.get("messages", [])
+    return cast(list[Any], st.session_state.get("messages", []))
 
 
 def add_message(message: Any) -> None:
@@ -204,7 +204,7 @@ def clear_messages() -> None:
 
 def get_thread_id() -> str | None:
     """Get current thread ID."""
-    return st.session_state.get("thread_id")
+    return cast(str | None, st.session_state.get("thread_id"))
 
 
 def set_thread_id(thread_id: str | None) -> None:
@@ -235,7 +235,7 @@ def get_or_create_thread_id() -> str:
 
 def get_process_data() -> ProcessData | None:
     """Get current process data."""
-    return st.session_state.get("process_data")
+    return cast(ProcessData | None, st.session_state.get("process_data"))
 
 
 def set_process_data(data: ProcessData | None) -> None:
@@ -248,7 +248,7 @@ def set_process_data(data: ProcessData | None) -> None:
 
 def get_constraints() -> Constraints | None:
     """Get current constraints."""
-    return st.session_state.get("constraints")
+    return cast(Constraints | None, st.session_state.get("constraints"))
 
 
 def set_constraints(constraints: Constraints | None) -> None:
@@ -261,7 +261,7 @@ def set_constraints(constraints: Constraints | None) -> None:
 
 def get_business_profile() -> BusinessProfile | None:
     """Get current business profile."""
-    return st.session_state.get("business_profile")
+    return cast(BusinessProfile | None, st.session_state.get("business_profile"))
 
 
 def set_business_profile(profile: BusinessProfile | None) -> None:
@@ -274,7 +274,7 @@ def set_business_profile(profile: BusinessProfile | None) -> None:
 
 def get_analysis_insight() -> AnalysisInsight | None:
     """Get LLM-based analysis insight."""
-    return st.session_state.get("analysis_insight")
+    return cast(AnalysisInsight | None, st.session_state.get("analysis_insight"))
 
 
 def set_analysis_insight(insight: AnalysisInsight | None) -> None:
@@ -300,7 +300,7 @@ def set_confidence(confidence: Any | None) -> None:
 
 def get_analysis_mode() -> str:
     """Get selected analysis mode."""
-    return st.session_state.get("analysis_mode", ANALYSIS_MODE_BALANCED)
+    return cast(str, st.session_state.get("analysis_mode", ANALYSIS_MODE_BALANCED))
 
 
 def set_analysis_mode(mode: str) -> None:
@@ -313,10 +313,10 @@ def get_llm_provider() -> Literal["anthropic", "openai", "ollama"]:
 
     Returns one of: 'openai', 'anthropic', 'ollama'.
     """
-    provider = st.session_state.get("llm_provider", "openai")
+    provider = cast(str, st.session_state.get("llm_provider", "openai"))
     if provider not in ("openai", "anthropic", "ollama"):
         return "openai"
-    return provider
+    return cast(Literal["anthropic", "openai", "ollama"], provider)
 
 
 def set_llm_provider(provider: str) -> None:
@@ -376,7 +376,7 @@ def has_process_data_gaps() -> bool:
 
 def get_clarification_context() -> str:
     """Get accumulated clarification context from user responses."""
-    return st.session_state.get("clarification_context", "")
+    return cast(str, st.session_state.get("clarification_context", ""))
 
 
 def add_clarification_context(context: str) -> None:
@@ -398,7 +398,9 @@ def clear_clarification_context() -> None:
 
 def get_pending_clarifications() -> ClarificationBundle | None:
     """Get pending clarification bundle (structured questions for the user)."""
-    return st.session_state.get("pending_clarifications")
+    return cast(
+        ClarificationBundle | None, st.session_state.get("pending_clarifications")
+    )
 
 
 def set_pending_clarifications(bundle: ClarificationBundle | None) -> None:
@@ -423,7 +425,7 @@ def clear_clarification_responses() -> None:
 
 def is_analysis_pending() -> bool:
     """Check if analysis is pending (should be triggered on next render)."""
-    return st.session_state.get("analysis_pending", False)
+    return cast(bool, st.session_state.get("analysis_pending", False))
 
 
 def set_analysis_pending(pending: bool) -> None:
@@ -436,7 +438,7 @@ def set_analysis_pending(pending: bool) -> None:
 
 def is_input_pending() -> bool:
     """Check if input processing is pending (should be triggered on next render)."""
-    return st.session_state.get("input_pending", False)
+    return cast(bool, st.session_state.get("input_pending", False))
 
 
 def get_pending_input() -> tuple[str | None, ChatState | None]:
@@ -475,7 +477,7 @@ def clear_input_pending() -> None:
 # --- Partial Process ---
 
 
-def get_partial_process() -> dict | None:
+def get_partial_process() -> dict[str, Any] | None:
     """Get partial process data (incomplete/unvalidated data during GATHERING).
 
     Returns a dict with whatever we've understood so far:
@@ -483,15 +485,15 @@ def get_partial_process() -> dict | None:
     - name: process name if detected
     - context: additional context provided
     """
-    return st.session_state.get("partial_process")
+    return cast(dict[str, Any] | None, st.session_state.get("partial_process"))
 
 
-def set_partial_process(data: dict | None) -> None:
+def set_partial_process(data: dict[str, Any] | None) -> None:
     """Set partial process data."""
     st.session_state.partial_process = data
 
 
-def update_partial_process(updates: dict) -> None:
+def update_partial_process(updates: dict[str, Any]) -> None:
     """Merge updates into existing partial process data."""
     current = get_partial_process() or {}
 
@@ -520,7 +522,7 @@ def clear_partial_process() -> None:
 
 def is_data_confirmed() -> bool:
     """Check if user has confirmed the data for analysis."""
-    return st.session_state.get("data_confirmed", False)
+    return cast(bool, st.session_state.get("data_confirmed", False))
 
 
 def set_data_confirmed(confirmed: bool) -> None:
@@ -541,17 +543,17 @@ def set_data_gaps(gaps: list[str]) -> None:
 # --- Draft Step Builder ---
 
 
-def get_draft_steps() -> list[dict] | None:
+def get_draft_steps() -> list[dict[str, Any]] | None:
     """Get draft steps from the step builder form."""
-    return st.session_state.get("draft_steps")
+    return cast(list[dict[str, Any]] | None, st.session_state.get("draft_steps"))
 
 
-def set_draft_steps(steps: list[dict] | None) -> None:
+def set_draft_steps(steps: list[dict[str, Any]] | None) -> None:
     """Set draft steps."""
     st.session_state.draft_steps = steps
 
 
-def add_draft_step(step: dict) -> None:
+def add_draft_step(step: dict[str, Any]) -> None:
     """Add a draft step to the builder."""
     steps = get_draft_steps() or []
     steps.append(step)
@@ -569,9 +571,11 @@ def remove_draft_step(index: int) -> None:
 # --- Recommendation Feedback ---
 
 
-def get_recommendation_feedback() -> dict[str, dict]:
+def get_recommendation_feedback() -> dict[str, dict[str, Any]]:
     """Get all recommendation feedback for this session."""
-    return st.session_state.get("recommendation_feedback", {})
+    return cast(
+        dict[str, dict[str, Any]], st.session_state.get("recommendation_feedback", {})
+    )
 
 
 def set_recommendation_feedback(
@@ -616,7 +620,7 @@ def request_reset() -> None:
 
 def is_reset_requested() -> bool:
     """Check if reset was requested."""
-    return st.session_state.get("reset_requested", False)
+    return cast(bool, st.session_state.get("reset_requested", False))
 
 
 def reset_conversation() -> None:
@@ -680,7 +684,7 @@ def reset_all() -> None:
 
 def get_reasoning_trace() -> list[str]:
     """Get reasoning trace."""
-    return st.session_state.get("reasoning_trace", [])
+    return cast(list[str], st.session_state.get("reasoning_trace", []))
 
 
 def set_reasoning_trace(trace: list[str]) -> None:

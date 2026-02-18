@@ -116,7 +116,7 @@ def _render_steps_table(process_data: ProcessData) -> None:
     df = pd.DataFrame(rows)
 
     # Highlight missing/default values
-    def highlight_missing(val, col_name):
+    def highlight_missing(val: object, col_name: str) -> str:
         """Style cells with default/missing values."""
         if col_name == "Problem Freq. (%)" and val == 0:
             return "background-color: #fef3c7"  # Amber-100
@@ -124,9 +124,9 @@ def _render_steps_table(process_data: ProcessData) -> None:
             return "background-color: #fef3c7"
         return ""
 
-    # Apply styling
+    # Apply styling (axis=0 applies column-wise; x.name is the column name)
     styled_df = df.style.apply(
-        lambda x: [highlight_missing(v, x.name) for v in x],
+        lambda x: [highlight_missing(v, str(x.name)) for v in x],
         axis=0,
     )
 

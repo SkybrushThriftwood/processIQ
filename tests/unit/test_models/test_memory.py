@@ -54,7 +54,10 @@ class TestBusinessProfile:
         assert full_profile.industry == Industry.FINANCIAL_SERVICES
         assert full_profile.company_size == CompanySize.ENTERPRISE
         assert full_profile.annual_revenue == RevenueRange.FROM_20M_TO_100M
-        assert full_profile.regulatory_environment == RegulatoryEnvironment.HIGHLY_REGULATED
+        assert (
+            full_profile.regulatory_environment
+            == RegulatoryEnvironment.HIGHLY_REGULATED
+        )
         assert len(full_profile.typical_constraints) == 2
         assert len(full_profile.rejected_approaches) == 1
 

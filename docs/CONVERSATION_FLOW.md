@@ -1,7 +1,7 @@
 # ProcessIQ Conversation Flow
 
 **Created:** 2026-02-03
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-02-18
 **Status:** Implemented
 
 ---
@@ -140,7 +140,7 @@ This document specifies how the chat-first UI handles conversations. The primary
 ```python
 class MessageRole(str, Enum):
     USER = "user"
-    AGENT = "agent"
+    AGENT = "assistant"  # Streamlit uses "assistant" not "agent"
     SYSTEM = "system"
 
 class MessageType(str, Enum):
@@ -163,12 +163,12 @@ class ChatMessage:
     data: Any = None                       # ProcessData, AnalysisInsight, etc.
     file_name: str | None = None           # For FILE type
     questions: list[dict] | None = None    # For CLARIFICATION type
-    is_editable: bool = False              # For DATA_CARD type
-    analysis_insight: Any = None           # AnalysisInsight for ANALYSIS type
-    draft_insight: Any = None              # Draft preview after extraction
-    suggested_questions: list[str] = None  # Targeted follow-up questions
-    improvement_suggestions: str = None    # Post-extraction guidance
-    confidence: float = 0.0               # Data completeness score
+    is_editable: bool = False                          # For DATA_CARD type
+    analysis_insight: AnalysisInsight | None = None    # For ANALYSIS type
+    draft_insight: AnalysisInsight | None = None       # Draft preview after extraction
+    suggested_questions: list[str] | None = None       # Targeted follow-up suggestions
+    improvement_suggestions: str | None = None         # Post-extraction guidance
+    confidence: float | None = None                    # Data completeness score
 ```
 
 ---
@@ -235,11 +235,10 @@ Agent: Sounds frustrating. Walk me through a typical campaign from when
 - Per-field estimated value markers (asterisks on AI-estimated values)
 - Targeted follow-up questions based on data gaps
 - Draft analysis preview (when confidence >= 50%)
-- Three buttons:
+- Two buttons (rendered in the data card footer):
   - **Confirm & Analyze** — proceed to full analysis
-  - **Edit Data** — switch to expert mode for direct editing
   - **Estimate Missing** — ask LLM to fill in missing values (only shown when gaps exist)
-- "I have more to add" returns to GATHERING
+- "I have more to add" in the chat input returns to GATHERING
 
 ---
 
@@ -351,32 +350,19 @@ class ChatState(str, Enum):
 | `process_data` | ProcessData | Confirmed process data |
 | `constraints` | Constraints | User-defined constraints |
 | `business_profile` | BusinessProfile | Industry, company size, etc. |
-| `analysis_insight` | AnalysisInsight | LLM-based analysis results (preferred) |
-| `analysis_result` | AnalysisResult | Legacy algorithm-based results (fallback) |
+| `analysis_insight` | AnalysisInsight | LLM-based analysis results |
 | `confidence` | ConfidenceResult | Data completeness scoring |
 | `analysis_mode` | str | Selected analysis preset |
-| `expert_mode` | bool | Expert panel visibility |
-| `analysis_pending` | bool | Triggers analysis on next render |
+| `analysis_pending` | bool | Triggers analysis on next render cycle |
+| `input_pending` | bool | Triggers input processing on next render cycle |
 | `thread_id` | str | LangGraph persistence thread ID |
 | `user_id` | str | UUID for user identification |
-| `clarification_context` | list | Accumulated clarification responses |
-
----
-
-## Guided vs Expert Mode
-
-### Guided Mode (Default)
-- Pure chat interface
-- Agent leads conversation
-- Data card appears only for confirmation
-- Minimal UI chrome
-
-### Expert Mode (Toggle in sidebar)
-- Two-column layout: chat left (3), expert panel right (2)
-- Persistent editable data table (`st.data_editor`)
-- Confidence breakdown per category (process, constraints, context)
-- Per-step field coverage indicators
-- Reasoning trace display
+| `clarification_context` | str | Accumulated clarification responses (plain text) |
+| `pending_clarifications` | ClarificationBundle | Structured questions waiting for user response |
+| `clarification_responses` | list[ClarificationResponse] | User answers to clarifying questions |
+| `reasoning_trace` | list[str] | Agent reasoning steps (shown in results expander) |
+| `recommendation_feedback` | dict | Up/down votes on recommendations (session-scoped) |
+| `draft_steps` | list[dict] | In-progress steps from step builder form |
 
 ---
 

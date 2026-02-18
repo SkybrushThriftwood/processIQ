@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from docling.datamodel.base_models import ConversionStatus
 from docling.document_converter import DocumentConverter
@@ -51,7 +51,7 @@ class DocumentChunk:
     chunk_type: str  # "text", "table", "heading", "list", "picture_caption"
     page: int | None = None
     confidence: float = 1.0
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -70,7 +70,7 @@ class ParsedDocument:
     text: str
     markdown: str
     chunks: list[DocumentChunk]
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     success: bool = True
     error: str | None = None
 
@@ -82,7 +82,8 @@ class ParsedDocument:
     @property
     def page_count(self) -> int:
         """Get number of pages in document."""
-        return self.metadata.get("page_count", 0)
+        count = self.metadata.get("page_count", 0)
+        return int(count) if isinstance(count, int | float) else 0
 
 
 # Singleton converter instance (expensive to create)
@@ -98,7 +99,7 @@ def _get_converter() -> DocumentConverter:
     return _converter
 
 
-def _extract_chunks(doc) -> list[DocumentChunk]:
+def _extract_chunks(doc: Any) -> list[DocumentChunk]:
     """Extract semantic chunks from a DoclingDocument."""
     chunks = []
 
@@ -297,6 +298,6 @@ def parse_from_stream(stream: BinaryIO, filename: str) -> ParsedDocument:
         ...     doc = parse_from_stream(uploaded_file, uploaded_file.name)
     """
     file_bytes = stream.read()
-    if isinstance(file_bytes, (bytearray, memoryview)):
+    if isinstance(file_bytes, bytearray | memoryview):
         file_bytes = bytes(file_bytes)
     return parse_document(file_bytes, filename)

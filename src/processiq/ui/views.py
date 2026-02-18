@@ -143,7 +143,7 @@ def render_chat_area() -> None:
         process_data = get_process_data()
         show_estimate = has_process_data_gaps()
         # Disable analysis if all steps have zero timing (no useful data to analyze)
-        all_missing_time = all(
+        all_missing_time = process_data is not None and all(
             s.average_time_hours == 0 for s in process_data.steps
         )
         confirmed, wants_estimate = render_confirm_buttons(

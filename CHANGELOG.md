@@ -8,6 +8,51 @@ Categories: `DESIGN`, `ARCHITECTURE`, `SCOPE`, `TECH`, `DECISION`
 
 ---
 
+## 2026-02-18 (deployment strategy)
+
+### SCOPE: Added deployment strategy to PRODUCT_STRATEGY.md
+
+- Hosting path documented: Streamlit Community Cloud (Phase 1) → HuggingFace Spaces (Phase 2, ChromaDB headroom) → Railway (if always-on reliability needed before paying users)
+- Instrumentation stack defined: Sentry (error tracking), PostHog (event analytics with specific events for ProcessIQ), `st.feedback()` + Tally.so (in-app qualitative feedback)
+- Launch sequence documented: BetaList pre-launch → Reddit target communities → Show HN → Indie Hackers → Product Hunt (later, for social proof not acquisition)
+- Target communities listed with rationale: r/operations, r/lean, r/businessanalysis, Process Excellence Network, LinkedIn Lean Six Sigma Group, iSixSigma
+- Async-first feedback approach: written follow-up pattern, three specific diagnostic questions, instrumentation for behavioral data without user interviews
+
+---
+
+## 2026-02-18 (product strategy)
+
+### SCOPE: Expanded roadmap and added product strategy document
+
+- `ROADMAP.md` restructured: Phase 2 expanded with four new items (process visualization moved up from Phase 3, PDF/HTML report export, Docling UI exposure, outcome tracking hook in 2A); Phase 3 adds process templates and formal outcome tracking; sequencing table updated with rationale
+- `docs/PRODUCT_STRATEGY.md` created: detailed reasoning behind Phase 2 and Phase 3 priorities — covers the SMB market opportunity, time-to-value analysis, why shareable output drives organic growth, the difference between preference feedback and outcome feedback, and why specific features were ruled out
+- ROADMAP.md links to PRODUCT_STRATEGY.md for the "why" behind each decision
+
+---
+
+## 2026-02-18
+
+### FIX: Corrected file format claims across docs
+
+- `render_file_uploader` defaults to `["csv", "xlsx", "xls"]` — the UI only exposes spreadsheets, not Docling's full 14-format range
+- Removed "14 formats" and Docling format claims from Phase 1 sections in README, ROADMAP, and PROJECT_BRIEF
+- Phase 1 vs Phase 2 scope table in PROJECT_BRIEF updated: PDF/DOCX/image upload now correctly marked as Phase 2
+- Docling parser is implemented and wired up in `agent/interface.py` but not exposed in the UI uploader
+
+### SCOPE: Added ROADMAP.md, LICENSE, CONTRIBUTING.md
+
+- `LICENSE` — MIT license file added at repo root (was referenced in README badge and pyproject.toml but did not exist)
+- `ROADMAP.md` — full roadmap with sequenced priorities and rationale extracted from PROJECT_BRIEF; replaces the 5-bullet stub in README
+- `CONTRIBUTING.md` — setup, workflow, and design principles for contributors
+- README roadmap section updated to link to ROADMAP.md
+
+### DECISION: Updated CONVERSATION_FLOW.md and architecture_diagram.mmd to match current implementation
+
+- `CONVERSATION_FLOW.md`: corrected `MessageRole.AGENT` value, fixed `ChatMessage` field types, removed stale "Edit Data" button and "Guided vs Expert Mode" section, updated session state table
+- `architecture_diagram.mmd`: rewrote Agent subgraph to reflect actual 4-node LangGraph implementation; removed 9 fabricated nodes that were never built; updated ingestion and output subgraphs
+
+---
+
 ## 2026-02-17
 
 ### DESIGN: Self-Improving Agent via Recommendation Feedback

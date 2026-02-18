@@ -118,8 +118,14 @@ class ProcessData(BaseModel):
             # Merge: incoming non-zero values overwrite existing
             estimated = list(existing.estimated_fields)
             merge_fields = {
-                "average_time_hours": (incoming.average_time_hours, existing.average_time_hours),
-                "cost_per_instance": (incoming.cost_per_instance, existing.cost_per_instance),
+                "average_time_hours": (
+                    incoming.average_time_hours,
+                    existing.average_time_hours,
+                ),
+                "cost_per_instance": (
+                    incoming.cost_per_instance,
+                    existing.cost_per_instance,
+                ),
                 "error_rate_pct": (incoming.error_rate_pct, existing.error_rate_pct),
             }
 
@@ -138,7 +144,9 @@ class ProcessData(BaseModel):
                     average_time_hours=merged_values["average_time_hours"],
                     cost_per_instance=merged_values["cost_per_instance"],
                     error_rate_pct=merged_values["error_rate_pct"],
-                    resources_needed=incoming.resources_needed if incoming.resources_needed > 1 else existing.resources_needed,
+                    resources_needed=incoming.resources_needed
+                    if incoming.resources_needed > 1
+                    else existing.resources_needed,
                     depends_on=incoming.depends_on or existing.depends_on,
                     estimated_fields=estimated,
                     group_id=existing.group_id or incoming.group_id,

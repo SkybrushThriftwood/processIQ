@@ -24,20 +24,38 @@ Unlike generic LLM tools, ProcessIQ:
 
 ## Demo
 
-> **Screenshot placeholder — add a screen recording or GIF of the chat interface here**
->
-> Suggested flow to record:
-> 1. Describe a process in plain text (e.g. "Our invoice approval takes 3 days...")
-> 2. Agent extracts structured steps and shows the data card
-> 3. Click "Confirm & Analyze"
-> 4. Walk through the results: summary, bottleneck, recommendation with progressive disclosure
+![ProcessIQ full flow](docs/assets/demo.gif)
 
-```
-<!-- Replace this block with your screenshot or GIF -->
-<!-- Example:
-![ProcessIQ Demo](docs/assets/demo.gif)
--->
-```
+<details>
+<summary><strong>Core Flow</strong></summary>
+
+<br>
+
+**Start screen**
+
+![Start screen](docs/assets/04_start_screen.png)
+
+On first load, a capability overview explains what ProcessIQ does before any conversation starts.
+
+**1. Describe a process in plain language**
+
+![Chat input](docs/assets/01_chat_input.png)
+
+The agent extracts structured steps from natural language. If critical data is missing, it asks targeted questions instead of guessing.
+
+**2. Review and edit extracted data**
+
+![Data review table](docs/assets/02_data_review.png)
+
+Extracted steps appear in an inline editable table. Every inferred value is marked with `*`. You can adjust any cell before proceeding.
+
+**3. Results and feedback**
+
+![Analysis results and feedback](docs/assets/03_results.png)
+
+Results are structured as issues → linked recommendations. Each recommendation includes a rough ROI estimate and implementation details behind progressive disclosure. Feedback buttons appear directly below each recommendation.
+
+</details>
 
 ---
 
@@ -160,6 +178,37 @@ High-CQ means recommendations adapt to the user's specific business reality.
 
 ---
 
+## Feedback Loop
+
+ProcessIQ learns from your reactions within a session. After each recommendation, you can mark it helpful or reject it with an optional reason.
+
+When you re-run analysis (after adding context or constraints), the agent receives your feedback history and:
+
+- **Does not repeat rejected recommendations** — unless it has a fundamentally different approach
+- **Leans toward accepted recommendation types** — it calibrates to what you found useful
+
+The feedback is injected directly into the analysis prompt as an explicit instruction to the LLM — not as a vague hint. Rejected items include your reason if you provided one.
+
+**How the pipeline works:**
+
+```
+thumbs up / down
+    ↓
+session_state["recommendation_feedback"]
+    ↓
+execute_pending_analysis() → analyze_process()
+    ↓
+_format_feedback_history() → text block
+    ↓
+analyze.j2 → LLM instruction:
+  "Do NOT repeat rejected recommendations.
+   Lean toward accepted types."
+    ↓
+New AnalysisInsight with adjusted recommendations
+```
+
+---
+
 ## Features
 
 ### Chat-First Interface
@@ -170,7 +219,7 @@ High-CQ means recommendations adapt to the user's specific business reality.
 - Post-analysis follow-up conversation with full context
 
 ### Data Ingestion
-- 14 supported file formats via Docling (PDF, DOCX, PPTX, Excel, HTML, PNG, JPG, TIFF, BMP)
+- CSV and Excel upload with pandas-based parsing
 - LLM-powered normalization via Instructor + Pydantic — handles messy, inconsistent data
 - Files processed in-memory only, never stored on disk
 
@@ -286,7 +335,7 @@ processiq/
 | Agent orchestration | LangGraph | Stateful graph with conditional branching |
 | LLM providers | OpenAI / Anthropic / Ollama | Analysis, extraction, clarification |
 | Structured output | Instructor + Pydantic | Validated LLM responses, auto-retry on failure |
-| Document parsing | Docling | PDF, DOCX, Excel, images (14 formats) |
+| Document parsing | Docling | PDF, DOCX, PPTX, Excel, HTML, images — Phase 2 |
 | UI | Streamlit | Chat-first interface |
 | Configuration | pydantic-settings | Type-safe `.env` config |
 | Prompt templating | Jinja2 | Separate `.j2` files, no inline strings |
@@ -326,13 +375,19 @@ uv run mypy src/
 
 ---
 
-## Roadmap (Phase 2)
+## Roadmap
 
-- ChromaDB integration for RAG (document embedding and retrieval)
-- Persistent memory across sessions (episodic + semantic) — feedback currently session-scoped, Phase 2 extends it across sessions
+See [ROADMAP.md](ROADMAP.md) for the full plan with rationale and sequencing.
+
+**Phase 2 priorities:**
+1. Cross-session feedback persistence — recommendation feedback currently resets on each session
+2. Persistent business profile — industry, size, constraints re-entered every session
+3. ChromaDB RAG — semantic retrieval of past analyses as context
+
+**Phase 3:**
 - LLM response streaming
-- Interactive process visualization
-- Multi-user collaboration
+- Process flowchart visualization
+- Opt-in benchmark comparison
 
 ---
 

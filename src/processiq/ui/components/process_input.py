@@ -299,7 +299,8 @@ def render_process_input() -> bool:
         _render_file_upload()
 
     # Check if we have valid data
-    return get_draft_steps() is not None and len(get_draft_steps()) > 0
+    steps = get_draft_steps()
+    return steps is not None and len(steps) > 0
 
 
 def _render_form_builder() -> None:
@@ -318,7 +319,7 @@ def _render_form_builder() -> None:
         set_draft_steps(draft_steps)
 
     # Collect existing step names for dependency dropdowns
-    existing_step_names = []
+    existing_step_names: list[str] = []
     updated_steps = []
     steps_to_remove = []
 

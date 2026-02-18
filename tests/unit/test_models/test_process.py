@@ -158,9 +158,7 @@ class TestProcessData:
         process = ProcessData(
             name="Test",
             steps=[
-                ProcessStep(
-                    step_name="X", average_time_hours=1.0, resources_needed=1
-                )
+                ProcessStep(step_name="X", average_time_hours=1.0, resources_needed=1)
             ],
         )
         assert process.description == ""

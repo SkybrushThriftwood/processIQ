@@ -1,7 +1,6 @@
 """Tests for processiq.agent.state."""
 
 from processiq.agent.state import create_initial_state
-from processiq.models import BusinessProfile, CompanySize, Constraints, Industry, Priority
 
 
 class TestCreateInitialState:
@@ -26,7 +25,9 @@ class TestCreateInitialState:
         assert state["analysis_mode"] is None
         assert state["llm_provider"] is None
 
-    def test_with_optional_fields(self, simple_process, strict_constraints, minimal_profile):
+    def test_with_optional_fields(
+        self, simple_process, strict_constraints, minimal_profile
+    ):
         state = create_initial_state(
             process=simple_process,
             constraints=strict_constraints,

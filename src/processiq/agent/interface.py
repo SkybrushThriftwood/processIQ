@@ -13,7 +13,7 @@ Design principles:
 import logging
 import re
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -272,7 +272,7 @@ def _generate_post_extraction_extras(
     draft_insight: AnalysisInsight | None = None
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = {
+        futures: dict[Future[Any], str] = {
             executor.submit(
                 _generate_improvement_suggestions,
                 process_data,
@@ -311,7 +311,7 @@ def analyze_process(
     user_id: str | None = None,
     analysis_mode: str | None = None,
     llm_provider: Literal["anthropic", "openai", "ollama"] | None = None,
-    feedback_history: dict | None = None,
+    feedback_history: dict[str, dict[str, object]] | None = None,
 ) -> AgentResponse:
     """Run full analysis on confirmed process data.
 
@@ -670,7 +670,7 @@ def extract_from_file(
             # Force LLM path for semantic name matching
             logger.info(
                 "Existing process data found (%d steps), using LLM for file merge",
-                len(current_process_data.steps),
+                len(current_process_data.steps) if current_process_data else 0,
             )
             content = _file_bytes_to_text(file_bytes, suffix)
             process_data, response = normalize_with_llm(
@@ -962,7 +962,7 @@ def get_thread_state(thread_id: str) -> dict[str, Any] | None:
         config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
         checkpoint = checkpointer.get(config)
         if checkpoint:
-            return checkpoint.get("channel_values", {})
+            return dict(checkpoint.get("channel_values", {}))
         return None
     except Exception as e:
         logger.warning("Error getting thread state: %s", e)

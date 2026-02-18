@@ -10,7 +10,6 @@ from processiq.models import (
     Bottleneck,
     ProcessData,
     ProcessStep,
-    ROIEstimate,
     SeverityLevel,
     Suggestion,
     SuggestionType,
@@ -107,7 +106,11 @@ class TestCalculateRoi:
         assert roi.likely <= roi.optimistic
 
     def test_elimination_higher_savings(
-        self, elimination_suggestion, automation_suggestion, review_bottleneck, roi_process
+        self,
+        elimination_suggestion,
+        automation_suggestion,
+        review_bottleneck,
+        roi_process,
     ):
         roi_elim = calculate_roi(elimination_suggestion, review_bottleneck, roi_process)
         roi_auto = calculate_roi(automation_suggestion, review_bottleneck, roi_process)
@@ -158,18 +161,20 @@ class TestCalculateRoi:
         self, automation_suggestion, review_bottleneck, roi_process
     ):
         roi_low = calculate_roi(
-            automation_suggestion, review_bottleneck, roi_process,
+            automation_suggestion,
+            review_bottleneck,
+            roi_process,
             executions_per_year=100,
         )
         roi_high = calculate_roi(
-            automation_suggestion, review_bottleneck, roi_process,
+            automation_suggestion,
+            review_bottleneck,
+            roi_process,
             executions_per_year=10000,
         )
         assert roi_high.likely > roi_low.likely
 
-    def test_error_rate_included_in_savings(
-        self, review_bottleneck, roi_process
-    ):
+    def test_error_rate_included_in_savings(self, review_bottleneck, roi_process):
         """Steps with error rates should include error cost savings."""
         suggestion = Suggestion(
             id="s1",

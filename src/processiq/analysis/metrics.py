@@ -21,43 +21,74 @@ logger = logging.getLogger(__name__)
 _REVIEW_PATTERNS = [
     re.compile(p)
     for p in [
-        r"\breview", r"\bapproval\b", r"\bapprove", r"\bcheck\b",
-        r"\bvalidat", r"\bverif", r"\binspect", r"\bqc\b", r"\bqa\b",
+        r"\breview",
+        r"\bapproval\b",
+        r"\bapprove",
+        r"\bcheck\b",
+        r"\bvalidat",
+        r"\bverif",
+        r"\binspect",
+        r"\bqc\b",
+        r"\bqa\b",
     ]
 ]
 _EXTERNAL_PATTERNS = [
     re.compile(p)
     for p in [
-        r"\bclient\b", r"\bcustomer\b", r"\bvendor\b", r"\bexternal\b",
-        r"\bfeedback\b", r"\bhappy\b",
+        r"\bclient\b",
+        r"\bcustomer\b",
+        r"\bvendor\b",
+        r"\bexternal\b",
+        r"\bfeedback\b",
+        r"\bhappy\b",
     ]
 ]
 _HANDOFF_PATTERNS = [
     re.compile(p)
     for p in [
-        r"\bsend\b", r"\bsubmit\b", r"\bshare\b", r"\btransfer\b",
-        r"\bforward\b", r"\bdeliver\b", r"\bhandoff\b", r"\bhand off\b",
+        r"\bsend\b",
+        r"\bsubmit\b",
+        r"\bshare\b",
+        r"\btransfer\b",
+        r"\bforward\b",
+        r"\bdeliver\b",
+        r"\bhandoff\b",
+        r"\bhand off\b",
     ]
 ]
 _CREATIVE_PATTERNS = [
     re.compile(p)
     for p in [
-        r"\bdesign\b", r"\bcreate\b", r"\bdevelop\b", r"\bwrite\b",
-        r"\bbuild\b", r"\bsolution\b", r"\bwork on\b", r"\bimplement\b",
+        r"\bdesign\b",
+        r"\bcreate\b",
+        r"\bdevelop\b",
+        r"\bwrite\b",
+        r"\bbuild\b",
+        r"\bsolution\b",
+        r"\bwork on\b",
+        r"\bimplement\b",
     ]
 ]
 _ADMIN_PATTERNS = [
     re.compile(p)
     for p in [
-        r"\binvoice\b", r"\bdocument\b", r"\brecord\b",
-        r"\bfile\b", r"\blog\b", r"\breport\b",
+        r"\binvoice\b",
+        r"\bdocument\b",
+        r"\brecord\b",
+        r"\bfile\b",
+        r"\blog\b",
+        r"\breport\b",
     ]
 ]
 _PROCESSING_PATTERNS = [
     re.compile(p)
     for p in [
-        r"\bprocess\b", r"\bprepare\b", r"\banalyze\b",
-        r"\bcollect\b", r"\bgather\b", r"\btask\b",
+        r"\bprocess\b",
+        r"\bprepare\b",
+        r"\banalyze\b",
+        r"\bcollect\b",
+        r"\bgather\b",
+        r"\btask\b",
     ]
 ]
 
