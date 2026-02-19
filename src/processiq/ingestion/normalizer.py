@@ -213,7 +213,7 @@ def _extract_with_anthropic(
 
     result = cast(
         ExtractionResponse,
-        client.messages.create(
+        client.messages.create(  # pyright: ignore[reportCallIssue]
             model=model,
             max_tokens=4096,
             temperature=0,  # Maximize schema adherence for extraction
@@ -280,7 +280,7 @@ def _extract_with_openai(
         create_kwargs["max_tokens"] = 4096
         create_kwargs["temperature"] = 0
 
-    result = cast(ExtractionResponse, client.chat.completions.create(**create_kwargs))
+    result = cast(ExtractionResponse, client.chat.completions.create(**create_kwargs))  # pyright: ignore[reportCallIssue,reportArgumentType]
 
     if result.response_type == "extracted" and result.extraction:
         logger.info("Extracted %d steps with OpenAI", len(result.extraction.steps))
@@ -437,32 +437,35 @@ def normalize_with_llm(
     )
 
     # Apply explicit overrides
-    provider = provider or resolved_provider  # type: ignore[assignment]
+    effective_provider: str = provider or resolved_provider
     model = model or resolved_model
 
     # Validate provider for Instructor (only anthropic/openai supported)
-    if provider not in ("anthropic", "openai"):
+    if effective_provider not in ("anthropic", "openai"):
         logger.warning(
             "Provider '%s' not supported for extraction, falling back to openai",
-            provider,
+            effective_provider,
         )
-        provider = "openai"
+        effective_provider = "openai"
         model = settings.get_default_model("openai")
 
     mode_info = f" [mode={analysis_mode}]" if analysis_mode else ""
     logger.info(
-        "Normalizing content with %s/%s (task=extraction)%s", provider, model, mode_info
+        "Normalizing content with %s/%s (task=extraction)%s",
+        effective_provider,
+        model,
+        mode_info,
     )
 
     try:
-        if provider == "anthropic":
+        if effective_provider == "anthropic":
             response = _extract_with_anthropic(
                 content,
                 additional_context=additional_context,
                 conversation_context=conversation_context,
                 model=model,
             )
-        elif provider == "openai":
+        elif effective_provider == "openai":
             response = _extract_with_openai(
                 content,
                 additional_context=additional_context,
@@ -470,7 +473,7 @@ def normalize_with_llm(
                 model=model,
             )
         else:
-            raise ValueError(f"Unknown provider: {provider}")
+            raise ValueError(f"Unknown provider: {effective_provider}")
 
     except Exception as e:
         logger.error("LLM extraction failed: %s", e)
