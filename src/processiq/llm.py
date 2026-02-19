@@ -159,8 +159,7 @@ def _get_anthropic_model(model: str, temperature: float) -> BaseChatModel:
     """Create an Anthropic chat model."""
     from langchain_anthropic import ChatAnthropic
 
-    api_key = settings.anthropic_api_key.get_secret_value()
-    if not api_key:
+    if not settings.anthropic_api_key.get_secret_value():
         raise ConfigurationError(
             message="Anthropic API key not configured",
             config_key="anthropic_api_key",
@@ -169,7 +168,7 @@ def _get_anthropic_model(model: str, temperature: float) -> BaseChatModel:
 
     return ChatAnthropic(
         model=model,  # pyright: ignore[reportCallIssue]
-        api_key=api_key,
+        api_key=settings.anthropic_api_key,
         temperature=temperature,
         max_tokens=4096,  # pyright: ignore[reportCallIssue]
     )
@@ -179,8 +178,7 @@ def _get_openai_model(model: str, temperature: float) -> BaseChatModel:
     """Create an OpenAI chat model."""
     from langchain_openai import ChatOpenAI
 
-    api_key = settings.openai_api_key.get_secret_value()
-    if not api_key:
+    if not settings.openai_api_key.get_secret_value():
         raise ConfigurationError(
             message="OpenAI API key not configured",
             config_key="openai_api_key",
@@ -203,7 +201,7 @@ def _get_openai_model(model: str, temperature: float) -> BaseChatModel:
 
     return ChatOpenAI(
         model=model,
-        api_key=api_key,
+        api_key=settings.openai_api_key,
         temperature=1.0 if restricted else temperature,
         max_completion_tokens=max_tokens,  # pyright: ignore[reportCallIssue]
     )
