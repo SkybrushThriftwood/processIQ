@@ -198,6 +198,31 @@ def get_analysis_prompt(
     )
 
 
+def get_investigation_system_prompt(
+    insight: Any | None = None,
+    profile: Any | None = None,
+    constraints: Any | None = None,
+) -> str:
+    """Get the system prompt for the agentic investigation loop.
+
+    Rendered once per investigate_node execution (prepended as SystemMessage).
+
+    Args:
+        insight: The AnalysisInsight from initial analysis.
+        profile: Optional BusinessProfile for user context.
+        constraints: Optional Constraints for feasibility checks.
+
+    Returns:
+        Rendered system prompt string.
+    """
+    return render_prompt(
+        "investigation_system",
+        insight=insight,
+        profile=profile,
+        constraints=constraints,
+    )
+
+
 def get_followup_prompt(
     insight: Any,
     user_question: str,

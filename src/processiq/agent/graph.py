@@ -3,8 +3,9 @@
 Builds the stateful graph with nodes, edges, and conditional routing.
 
 Graph flow:
-    check_context → (sufficient) → analyze → finalize → END
-                  → (insufficient) → request_clarification → (loop back)
+    check_context → (sufficient) → initial_analysis → (issues found?) → investigate ↔ tools
+                  → (insufficient) → request_clarification → (loop back)  ↓ (no issues / cycle limit)
+                                                                        finalize → END
 """
 
 import logging
@@ -12,17 +13,22 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, StateGraph
+from langgraph.prebuilt import ToolNode
 
 from processiq.agent.edges import (
     route_after_clarification,
     route_after_context_check,
+    route_after_initial_analysis,
+    route_investigation,
 )
 from processiq.agent.nodes import (
-    analyze_with_llm_node,
     check_context_sufficiency,
     finalize_analysis_node,
+    initial_analysis_node,
+    investigate_node,
 )
 from processiq.agent.state import AgentState
+from processiq.agent.tools import INVESTIGATION_TOOLS
 from processiq.config import TASK_CLARIFICATION, settings
 
 logger = logging.getLogger(__name__)
@@ -40,17 +46,21 @@ def build_graph() -> StateGraph[AgentState]:
     START
       │
       ▼
-    check_context ──────────────────┐
-      │                             │
-      │ (sufficient)                │ (insufficient)
-      ▼                             ▼
-    analyze                 request_clarification
-      │                             │
-      ▼                             │ (user responds)
-    finalize                ────────┘
-      │
+    check_context ──────────────────────┐
+      │                                 │
+      │ (sufficient)                    │ (insufficient)
+      ▼                                 ▼
+    initial_analysis          request_clarification
+      │                                 │
+      │ (issues found)                  │ (user responds)
+      ▼              ◄──────────────────┘
+    investigate ──► tools
+      │ (no tool calls / cycle limit)
       ▼
-    END
+    finalize ──► END
+      ▲
+      │ (no issues)
+      └── initial_analysis
     ```
     """
     logger.info("Building ProcessIQ analysis graph")
@@ -59,9 +69,11 @@ def build_graph() -> StateGraph[AgentState]:
 
     # Add nodes
     graph.add_node("check_context", check_context_sufficiency)
-    graph.add_node("analyze", analyze_with_llm_node)
-    graph.add_node("finalize", finalize_analysis_node)
     graph.add_node("request_clarification", _request_clarification_node)
+    graph.add_node("initial_analysis", initial_analysis_node)
+    graph.add_node("investigate", investigate_node)
+    graph.add_node("tools", ToolNode(INVESTIGATION_TOOLS))
+    graph.add_node("finalize", finalize_analysis_node)
 
     # Set entry point
     graph.set_entry_point("check_context")
@@ -72,7 +84,7 @@ def build_graph() -> StateGraph[AgentState]:
         route_after_context_check,
         {
             "request_clarification": "request_clarification",
-            "analyze": "analyze",
+            "analyze": "initial_analysis",
         },
     )
 
@@ -81,12 +93,30 @@ def build_graph() -> StateGraph[AgentState]:
         route_after_clarification,
         {
             "check_context": "check_context",
-            "analyze": "analyze",
+            "analyze": "initial_analysis",
         },
     )
 
-    # Linear edges
-    graph.add_edge("analyze", "finalize")
+    graph.add_conditional_edges(
+        "initial_analysis",
+        route_after_initial_analysis,
+        {
+            "investigate": "investigate",
+            "finalize": "finalize",
+        },
+    )
+
+    graph.add_conditional_edges(
+        "investigate",
+        route_investigation,
+        {
+            "tools": "tools",
+            "finalize": "finalize",
+        },
+    )
+
+    # Tool results loop back to investigate for next LLM decision turn
+    graph.add_edge("tools", "investigate")
     graph.add_edge("finalize", END)
 
     logger.info("Graph built successfully")

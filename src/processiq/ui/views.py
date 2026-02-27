@@ -34,6 +34,7 @@ from processiq.ui.state import (
     get_constraints,
     get_file_upload_key,
     get_llm_provider,
+    get_max_cycles_override,
     get_messages,
     get_process_data,
     has_process_data_gaps,
@@ -42,6 +43,7 @@ from processiq.ui.state import (
     set_business_profile,
     set_constraints,
     set_llm_provider,
+    set_max_cycles_override,
 )
 from processiq.ui.styles import COLORS, apply_custom_css
 
@@ -93,13 +95,17 @@ def render_sidebar() -> None:
         profile = get_business_profile()
         analysis_mode = get_analysis_mode()
         llm_provider = get_llm_provider()
+        max_cycles = get_max_cycles_override()
 
         # Render advanced options
-        new_constraints, new_profile, new_mode, new_provider = render_advanced_options(
-            constraints=constraints,
-            profile=profile,
-            analysis_mode=analysis_mode,
-            llm_provider=llm_provider,
+        new_constraints, new_profile, new_mode, new_provider, new_max_cycles = (
+            render_advanced_options(
+                constraints=constraints,
+                profile=profile,
+                analysis_mode=analysis_mode,
+                llm_provider=llm_provider,
+                max_cycles_override=max_cycles,
+            )
         )
 
         # Update state if changed
@@ -107,6 +113,7 @@ def render_sidebar() -> None:
         set_business_profile(new_profile)
         set_analysis_mode(new_mode)
         set_llm_provider(new_provider)
+        set_max_cycles_override(new_max_cycles)
 
         # Privacy notice
         st.divider()

@@ -6,6 +6,8 @@ These functions determine which node to execute next based on state.
 import logging
 from typing import Literal
 
+from langchain_core.messages import AIMessage
+
 from processiq.agent.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -53,3 +55,60 @@ def route_after_clarification(
 
     logger.debug("Still need more context")
     return "check_context"
+
+
+def route_after_initial_analysis(
+    state: AgentState,
+) -> Literal["investigate", "finalize"]:
+    """Skip investigation if initial analysis found nothing actionable,
+    or if max_cycles is set to 0 (investigation disabled).
+    """
+    from processiq.config import settings
+
+    insight = state.get("analysis_insight")
+    max_cycles = state.get("max_cycles_override") or settings.agent_max_cycles
+
+    if max_cycles == 0:
+        logger.debug("Routing: investigation disabled (max_cycles=0)")
+        return "finalize"
+
+    if not insight or not insight.issues:
+        logger.debug("Routing: no issues found, skipping investigation")
+        return "finalize"
+
+    logger.debug(
+        "Routing: %d issue(s) found, proceeding to investigation", len(insight.issues)
+    )
+    return "investigate"
+
+
+def route_investigation(
+    state: AgentState,
+) -> Literal["tools", "finalize"]:
+    """Route after investigate_node.
+
+    Forward to tools if LLM made tool calls AND we are under the turn limit.
+    Otherwise finalize.
+    """
+    from processiq.config import settings
+
+    messages = state.get("messages", [])
+    if not messages:
+        return "finalize"
+
+    last = messages[-1]
+    cycle_count = state.get("cycle_count", 0)
+    max_cycles = state.get("max_cycles_override") or settings.agent_max_cycles
+
+    has_tool_calls = isinstance(last, AIMessage) and bool(
+        getattr(last, "tool_calls", [])
+    )
+
+    if has_tool_calls and cycle_count < max_cycles:
+        logger.debug("Routing to tools (turn %d/%d)", cycle_count, max_cycles)
+        return "tools"
+
+    logger.debug(
+        "Routing to finalize (turn %d, tool_calls=%s)", cycle_count, has_tool_calls
+    )
+    return "finalize"

@@ -13,6 +13,7 @@ from processiq.config import (
     ANALYSIS_MODE_BALANCED,
     ANALYSIS_MODE_COST,
     ANALYSIS_MODE_DEEP,
+    settings,
 )
 from processiq.models import (
     BusinessProfile,
@@ -92,7 +93,8 @@ def render_advanced_options(
     profile: BusinessProfile | None = None,
     analysis_mode: str = ANALYSIS_MODE_BALANCED,
     llm_provider: str = "openai",
-) -> tuple[Constraints | None, BusinessProfile | None, str, str]:
+    max_cycles_override: int | None = None,
+) -> tuple[Constraints | None, BusinessProfile | None, str, str, int | None]:
     """Render the advanced options panel in the sidebar.
 
     Args:
@@ -100,9 +102,11 @@ def render_advanced_options(
         profile: Current business profile or None for defaults.
         analysis_mode: Current analysis mode preset.
         llm_provider: Current LLM provider.
+        max_cycles_override: Current investigation cycle depth override.
 
     Returns:
-        Tuple of (updated_constraints, updated_profile, analysis_mode, llm_provider).
+        Tuple of (updated_constraints, updated_profile, analysis_mode, llm_provider,
+                  max_cycles_override).
     """
     updated_constraints = constraints
     updated_profile = profile
@@ -155,6 +159,23 @@ def render_advanced_options(
     if not is_ollama:
         st.caption(ANALYSIS_MODE_OPTIONS[new_analysis_mode]["description"])
 
+    # Investigation depth slider (only shown when enabled via env var)
+    new_max_cycles: int | None = max_cycles_override
+    if settings.agent_loop_slider_enabled and not is_ollama:
+        st.divider()
+        st.markdown("**Investigation Depth**")
+        slider_value = st.slider(
+            "Investigation turns",
+            min_value=1,
+            max_value=settings.agent_max_cycles,
+            value=max_cycles_override
+            if max_cycles_override is not None
+            else settings.agent_max_cycles,
+            key="agent_max_cycles_slider",
+            help="How many investigation rounds the agent runs. More turns = deeper analysis, higher cost.",
+        )
+        new_max_cycles = slider_value
+
     st.divider()
 
     # Constraints section
@@ -165,7 +186,13 @@ def render_advanced_options(
     with st.expander("Business Context", expanded=False):
         updated_profile = _render_context_compact(profile)
 
-    return updated_constraints, updated_profile, new_analysis_mode, new_provider
+    return (
+        updated_constraints,
+        updated_profile,
+        new_analysis_mode,
+        new_provider,
+        new_max_cycles,
+    )
 
 
 def _render_constraints_compact(constraints: Constraints | None) -> Constraints:

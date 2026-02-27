@@ -123,6 +123,8 @@ _STATE_DEFAULTS: dict[str, Any] = {
     "file_upload_key_counter": 0,
     # Recommendation feedback (persists across re-analyses within session)
     "recommendation_feedback": {},
+    # Agentic investigation cycle depth override (from slider, None = use settings default)
+    "max_cycles_override": None,
 }
 
 
@@ -322,6 +324,19 @@ def get_llm_provider() -> Literal["anthropic", "openai", "ollama"]:
 def set_llm_provider(provider: str) -> None:
     """Set LLM provider."""
     st.session_state.llm_provider = provider
+
+
+def get_max_cycles_override() -> int | None:
+    """Get investigation cycle depth override.
+
+    Returns the user-selected override, or None to use the default from settings.
+    """
+    return cast(int | None, st.session_state.get("max_cycles_override"))
+
+
+def set_max_cycles_override(value: int | None) -> None:
+    """Set investigation cycle depth override."""
+    st.session_state.max_cycles_override = value
 
 
 # --- File Upload Tracking ---

@@ -8,6 +8,35 @@ Categories: `DESIGN`, `ARCHITECTURE`, `SCOPE`, `TECH`, `DECISION`
 
 ---
 
+## 2026-02-27 (Phase 2 Task 1: agentic investigation loop)
+
+### ARCHITECTURE: Replaced single-pass analysis node with genuine agentic loop
+
+The analysis pipeline now supports iterative LLM-driven investigation via native function calling (LangGraph `ToolNode` + `InjectedState`). Key changes:
+
+- `analyze_with_llm_node` renamed to `initial_analysis_node`. Produces `AnalysisInsight` as before, but also caches `ProcessMetrics` in state and seeds the investigation message history.
+- New `investigate_node`: binds the LLM to `INVESTIGATION_TOOLS` via `model.bind_tools()`. The LLM decides which tools to call and what arguments to pass — not an enum selection.
+- New `agent/tools.py`: three `@tool` functions using `InjectedState` — `analyze_dependency_impact`, `validate_root_cause`, `check_constraint_feasibility`. Tools read `process_metrics` from state to avoid redundant recomputation.
+- `ToolNode` from `langgraph.prebuilt` executes tool calls; results loop back to `investigate_node` until no tool calls remain or `agent_max_cycles` is reached.
+- `finalize_analysis_node` now extracts `ToolMessage` content into `AnalysisInsight.investigation_findings` (new dedicated field — not `confidence_notes`).
+- Two new routing functions in `edges.py`: `route_after_initial_analysis` (skips investigation when no issues found or max_cycles=0) and `route_investigation` (tools vs finalize based on tool calls and cycle count).
+
+### CODE: State leakage fix in interface.py
+
+`analyze_process()` now uses a fresh `analysis_thread_id = str(uuid.uuid4())` for every graph invocation. The user-facing `thread_id` is retained for conversation continuity but is no longer passed to the graph, preventing `add_messages` reducer accumulation across runs.
+
+### CODE: New config settings for investigation loop
+
+Added `TASK_INVESTIGATION`, `agent_max_cycles` (default: 3), `agent_loop_slider_enabled` (default: False), and `llm_task_investigation: LLMTaskConfig` to `Settings`. Full per-task override support follows existing pattern.
+
+### CODE: UI additions
+
+- `investigation_findings` rendered as collapsible "Investigation Details" section in results.
+- Investigation depth slider added to Advanced Options (gated behind `agent_loop_slider_enabled` env var).
+- `max_cycles_override` flows from UI slider → session state → `analyze_process()` → `create_initial_state()`.
+
+---
+
 ## 2026-02-18 (deployment strategy)
 
 ### SCOPE: Added deployment strategy to PRODUCT_STRATEGY.md

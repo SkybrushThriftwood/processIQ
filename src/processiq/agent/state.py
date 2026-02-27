@@ -55,6 +55,13 @@ class AgentState(TypedDict, total=False):
     # User feedback on recommendations (for self-improving analysis)
     feedback_history: dict[str, dict[str, object]]
 
+    # Agentic investigation loop (Phase 2)
+    process_metrics: Any | None  # ProcessMetrics — cached from initial_analysis_node
+    cycle_count: int  # LLM decision turns completed
+    max_cycles_override: (
+        int | None
+    )  # from UI slider; None = use settings.agent_max_cycles
+
 
 # Initial state factory
 def create_initial_state(
@@ -64,6 +71,7 @@ def create_initial_state(
     analysis_mode: str | None = None,
     llm_provider: str | None = None,
     feedback_history: dict[str, dict[str, object]] | None = None,
+    max_cycles_override: int | None = None,
 ) -> AgentState:
     """Create initial agent state with required fields."""
     return AgentState(
@@ -83,4 +91,7 @@ def create_initial_state(
         analysis_mode=analysis_mode,
         llm_provider=llm_provider,
         feedback_history=feedback_history or {},
+        process_metrics=None,
+        cycle_count=0,
+        max_cycles_override=max_cycles_override,
     )

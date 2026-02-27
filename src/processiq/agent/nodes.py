@@ -20,7 +20,7 @@ from processiq.analysis import (
     format_metrics_for_llm,
     identify_critical_gaps,
 )
-from processiq.config import TASK_ANALYSIS, settings
+from processiq.config import TASK_ANALYSIS, TASK_INVESTIGATION, settings
 from processiq.models import (
     AnalysisInsight,
     BusinessProfile,
@@ -105,8 +105,8 @@ def check_context_sufficiency(state: AgentState) -> dict[str, Any]:
     }
 
 
-def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
-    """Node: Analyze process using LLM judgment on pre-calculated metrics.
+def initial_analysis_node(state: AgentState) -> dict[str, Any]:
+    """Node: Run initial single-pass LLM analysis.
 
     Algorithms calculate FACTS (time percentages, dependencies, patterns).
     LLM makes JUDGMENTS (what's a problem vs core value).
@@ -115,8 +115,13 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
     - Issues (problems with root cause hypotheses)
     - Recommendations (tied to specific issues)
     - Not-problems (steps that look slow but are core value)
+
+    After analysis, caches ProcessMetrics in state and seeds the investigation
+    message history for the investigation loop.
     """
-    logger.info("Node: analyze_with_llm - START")
+    from langchain_core.messages import HumanMessage
+
+    logger.info("Node: initial_analysis - START")
 
     process = state.get("process")
     if process is None:
@@ -164,6 +169,7 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
         logger.warning("LLM analysis failed, no insight produced")
         return {
             "analysis_insight": None,
+            "process_metrics": metrics,
             "error": "LLM analysis failed. Please try again.",
             "reasoning_trace": [
                 *state.get("reasoning_trace", []),
@@ -173,49 +179,137 @@ def analyze_with_llm_node(state: AgentState) -> dict[str, Any]:
         }
 
     logger.info(
-        "LLM analysis complete: %d issues, %d recommendations, %d not-problems",
+        "Node: initial_analysis - DONE: %d issues, %d recommendations, %d not-problems",
         len(insight.issues),
         len(insight.recommendations),
         len(insight.not_problems),
     )
 
     reasoning = (
-        f"LLM analysis: {len(insight.issues)} issues identified, "
+        f"Initial analysis: {len(insight.issues)} issues identified, "
         f"{len(insight.recommendations)} recommendations, "
         f"{len(insight.not_problems)} steps identified as core value (not waste)"
     )
 
+    # Seed investigation message history
+    user_context = profile.notes.strip() if profile and profile.notes else ""
+    issue_summary = (
+        "\n".join(f"- {i.title} (severity={i.severity})" for i in insight.issues)
+        if insight.issues
+        else "No issues found."
+    )
+    investigation_seed = (
+        f"Initial analysis complete.\n\n"
+        f"Issues found:\n{issue_summary}\n\n"
+        + (f"User context: {user_context}\n\n" if user_context else "")
+        + "Use the available tools to investigate issues that warrant deeper analysis. "
+        "Stop calling tools when you have gathered enough to refine the recommendations."
+    )
+
     return {
         "analysis_insight": insight,
+        "process_metrics": metrics,
+        "messages": [HumanMessage(content=investigation_seed)],
         "reasoning_trace": [*state.get("reasoning_trace", []), reasoning],
-        "current_phase": "finalization",
+        "current_phase": "investigation",
+    }
+
+
+def investigate_node(state: AgentState) -> dict[str, Any]:
+    """Node: LLM with tool access decides what to investigate.
+
+    Uses native function calling. Loops via tool_node until the LLM stops
+    calling tools or the cycle limit is reached.
+
+    Falls back to finalize immediately if the provider does not support
+    tool calling (e.g., some Ollama models).
+    """
+    from langchain_core.messages import AIMessage, SystemMessage
+
+    from processiq.agent.tools import INVESTIGATION_TOOLS
+    from processiq.prompts import get_investigation_system_prompt
+
+    cycle = state.get("cycle_count", 0)
+    logger.info("Node: investigate - START (cycle %d)", cycle)
+
+    # Ollama fallback: not all local models support function calling
+    provider = state.get("llm_provider") or settings.llm_provider
+    if provider == "ollama":
+        logger.info("Node: investigate - Ollama provider, skipping tool loop")
+        return {"current_phase": "finalization"}
+
+    model = _get_llm_model(
+        task=TASK_INVESTIGATION,
+        analysis_mode=state.get("analysis_mode"),
+        provider=state.get("llm_provider"),
+    )
+    model_with_tools = model.bind_tools(INVESTIGATION_TOOLS)
+
+    # Build message list: system prompt + accumulated messages
+    system_msg = SystemMessage(
+        content=get_investigation_system_prompt(
+            insight=state.get("analysis_insight"),
+            profile=state.get("profile"),
+            constraints=state.get("constraints"),
+        )
+    )
+    messages = [system_msg, *state.get("messages", [])]
+
+    response: AIMessage = model_with_tools.invoke(messages)
+
+    tool_calls = getattr(response, "tool_calls", [])
+    logger.info("Node: investigate - DONE: %d tool call(s) requested", len(tool_calls))
+
+    return {
+        "messages": [response],
+        "cycle_count": cycle + (1 if tool_calls else 0),
+        "current_phase": "investigating" if tool_calls else "finalization",
     }
 
 
 def finalize_analysis_node(state: AgentState) -> dict[str, Any]:
     """Node: Finalize and package the analysis results.
 
-    Passes through the AnalysisInsight from the analyze node.
-    Sets the phase to complete.
+    Incorporates any tool findings from the investigation loop into the
+    structured AnalysisInsight.investigation_findings field.
     """
+    from langchain_core.messages import ToolMessage
+
     logger.info("Node: finalize_analysis - START")
 
     insight = state.get("analysis_insight")
     confidence = state.get("confidence_score", 0.0)
     error = state.get("error")
 
+    # Extract tool results from message history into the structured field
+    tool_findings = [
+        msg.content
+        for msg in state.get("messages", [])
+        if isinstance(msg, ToolMessage) and msg.content
+    ]
+
+    if tool_findings and insight:
+        insight.investigation_findings = tool_findings
+        logger.info(
+            "Node: finalize_analysis - incorporated %d investigation finding(s)",
+            len(tool_findings),
+        )
+
     if error:
         reasoning = f"Analysis finalized with error: {error}"
     elif insight:
+        findings_note = (
+            f", {len(tool_findings)} investigation finding(s)" if tool_findings else ""
+        )
         reasoning = (
             f"Analysis finalized: {len(insight.issues)} issues, "
             f"{len(insight.recommendations)} recommendations, "
-            f"confidence={confidence:.0%}"
+            f"confidence={confidence:.0%}{findings_note}"
         )
     else:
         reasoning = "Analysis finalized with no results"
 
-    logger.info("Analysis finalized (confidence=%.0f%%)", confidence * 100)
+    logger.info("Node: finalize_analysis - DONE (confidence=%.0f%%)", confidence * 100)
 
     return {
         "reasoning_trace": [*state.get("reasoning_trace", []), reasoning],
