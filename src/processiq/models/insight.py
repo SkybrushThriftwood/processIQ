@@ -173,6 +173,13 @@ class AnalysisInsight(BaseModel):
         description="Caveats about the analysis (e.g., 'Limited by missing error rates')",
     )
 
+    # Agentic investigation findings (Phase 2)
+    investigation_findings: list[str] = Field(
+        default_factory=list,
+        description="Findings from the agentic investigation loop. "
+        "Populated after initial analysis by tool calls — not filled by the initial LLM pass.",
+    )
+
     # Raw thinking (optional, for debugging)
     reasoning: str = Field(
         default="",

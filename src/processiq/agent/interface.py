@@ -312,6 +312,7 @@ def analyze_process(
     analysis_mode: str | None = None,
     llm_provider: Literal["anthropic", "openai", "ollama"] | None = None,
     feedback_history: dict[str, dict[str, object]] | None = None,
+    max_cycles_override: int | None = None,
 ) -> AgentResponse:
     """Run full analysis on confirmed process data.
 
@@ -327,12 +328,14 @@ def analyze_process(
                  a new thread will be created for this user.
         analysis_mode: Optional analysis mode preset (cost_optimized, balanced, deep_analysis).
         llm_provider: Optional LLM provider override (openai, anthropic, ollama).
+        max_cycles_override: Optional override for the investigation cycle limit.
+                             None = use settings.agent_max_cycles.
 
     Returns:
         AgentResponse with analysis_insight populated on success,
         or is_error=True with message on failure.
     """
-    # Generate thread_id if not provided
+    # Generate thread_id if not provided (for conversation continuity)
     if thread_id is None:
         thread_id = get_thread_id(user_id) if user_id else str(uuid.uuid4())
 
@@ -352,6 +355,7 @@ def analyze_process(
             analysis_mode=analysis_mode,
             llm_provider=llm_provider,
             feedback_history=feedback_history,
+            max_cycles_override=max_cycles_override,
         )
 
         # Get checkpointer for persistence (if enabled)
@@ -363,10 +367,14 @@ def analyze_process(
         )
         app = compile_graph(checkpointer=checkpointer)
 
-        # Configure thread for checkpointing
-        config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+        # Always use a fresh thread ID for the analysis graph to prevent
+        # message accumulation from prior runs via the add_messages reducer.
+        # The user-facing thread_id is kept for conversation continuity but
+        # is NOT passed to the graph.
+        analysis_thread_id = str(uuid.uuid4())
+        config: dict[str, Any] = {"configurable": {"thread_id": analysis_thread_id}}
 
-        logger.debug("Invoking analysis graph")
+        logger.debug("Invoking analysis graph (analysis_thread=%s)", analysis_thread_id)
         result = app.invoke(state, config=config)
 
         # Extract results from state

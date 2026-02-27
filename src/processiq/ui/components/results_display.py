@@ -404,6 +404,13 @@ def _render_expandable_details(insight: AnalysisInsight) -> None:
             for pattern in insight.patterns:
                 st.markdown(f"- {pattern}")
 
+    # Investigation details (populated by agentic tool loop when enabled)
+    if insight.investigation_findings:
+        with st.expander("Investigation Details", expanded=False):
+            st.markdown("_Additional findings from the automated investigation loop:_")
+            for finding in insight.investigation_findings:
+                st.markdown(f"- {finding}")
+
     # Follow-up questions (if LLM had any)
     if insight.follow_up_questions:
         with st.expander("Questions to Consider", expanded=False):

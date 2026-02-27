@@ -35,6 +35,7 @@ from processiq.ui.state import (
     get_clarification_context,
     get_constraints,
     get_llm_provider,
+    get_max_cycles_override,
     get_messages,
     get_or_create_thread_id,
     get_pending_input,
@@ -754,6 +755,7 @@ def execute_pending_analysis() -> bool:
         analysis_mode=get_analysis_mode(),
         llm_provider=get_llm_provider(),
         feedback_history=get_recommendation_feedback(),
+        max_cycles_override=get_max_cycles_override(),
     )
 
     # Store thread_id from response if updated

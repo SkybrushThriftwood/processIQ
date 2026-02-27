@@ -23,6 +23,7 @@ TASK_EXTRACTION = "extraction"
 TASK_CLARIFICATION = "clarification"
 TASK_EXPLANATION = "explanation"
 TASK_ANALYSIS = "analysis"
+TASK_INVESTIGATION = "investigation"
 
 # Analysis mode presets (user-friendly model selection)
 ANALYSIS_MODE_COST = "cost_optimized"
@@ -76,6 +77,19 @@ class Settings(BaseSettings):
     llm_task_clarification: LLMTaskConfig = Field(default_factory=LLMTaskConfig)
     llm_task_explanation: LLMTaskConfig = Field(default_factory=LLMTaskConfig)
     llm_task_analysis: LLMTaskConfig = Field(default_factory=LLMTaskConfig)
+    llm_task_investigation: LLMTaskConfig = Field(default_factory=LLMTaskConfig)
+
+    # Agentic investigation loop
+    agent_loop_slider_enabled: bool = Field(
+        default=False,
+        description="Show cycle depth slider in Advanced Options. ENV: AGENT_LOOP_SLIDER_ENABLED",
+    )
+    agent_max_cycles: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Max investigation turns (LLM decisions, not tool call count). ENV: AGENT_MAX_CYCLES",
+    )
 
     # Application
     log_level: str = "INFO"  # DEBUG for development, INFO for demo
@@ -115,6 +129,7 @@ class Settings(BaseSettings):
             TASK_CLARIFICATION: self.llm_task_clarification,
             TASK_EXPLANATION: self.llm_task_explanation,
             TASK_ANALYSIS: self.llm_task_analysis,
+            TASK_INVESTIGATION: self.llm_task_investigation,
         }
         return task_configs.get(task, LLMTaskConfig())
 
