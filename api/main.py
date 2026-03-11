@@ -38,6 +38,7 @@ from api.schemas import (
 from processiq.agent import interface
 from processiq.agent.interface import SUPPORTED_EXTENSIONS
 from processiq.analysis.visualization import GraphSchema, build_graph_schema
+from processiq.config import settings
 from processiq.logging_config import setup_logging
 from processiq.models import BusinessProfile
 from processiq.persistence.analysis_store import (
@@ -148,6 +149,12 @@ async def analyze(request: Request, body: AnalyzeRequest) -> AnalyzeResponse:
             status_code=422, detail="process.description exceeds 5000 characters"
         )
 
+    if body.llm_provider == "ollama" and not settings.ollama_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Ollama is not available in this environment. Please select a different provider.",
+        )
+
     result = interface.analyze_process(
         process=body.process,
         constraints=body.constraints,
@@ -204,6 +211,12 @@ async def extract_text(request: Request, body: ExtractTextRequest) -> ExtractRes
     if len(body.text) > 10_000:
         raise HTTPException(status_code=422, detail="text exceeds 10 000 characters")
 
+    if body.llm_provider == "ollama" and not settings.ollama_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Ollama is not available in this environment. Please select a different provider.",
+        )
+
     result = interface.extract_from_text(
         user_message=body.text,
         analysis_mode=body.analysis_mode,
@@ -253,6 +266,12 @@ async def extract_file(
         raise HTTPException(
             status_code=413,
             detail=f"File too large. Maximum size is {MAX_FILE_BYTES // (1024 * 1024)} MB.",
+        )
+
+    if llm_provider == "ollama" and not settings.ollama_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Ollama is not available in this environment. Please select a different provider.",
         )
 
     file_bytes = await file.read()

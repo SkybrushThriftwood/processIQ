@@ -69,6 +69,10 @@ class Settings(BaseSettings):
         default=True,
         description="Enable LLM-generated explanations. Disable for testing or cost control.",
     )
+    ollama_enabled: bool = Field(
+        default=True,
+        description="Set to false in production environments where Ollama is not available.",
+    )
     ollama_base_url: str = "http://localhost:11434"
     ollama_timeout: int = Field(
         default=120,
