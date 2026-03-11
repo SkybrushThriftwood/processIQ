@@ -28,14 +28,12 @@ from processiq.analysis.confidence import ConfidenceResult, calculate_confidence
 from processiq.config import settings
 from processiq.exceptions import ExtractionError, ProcessIQError
 from processiq.ingestion import (
-    SUPPORTED_EXTENSIONS,
     ClarificationNeeded,
     ExtractionResult,
     load_csv_from_bytes,
     load_excel_from_bytes,
     normalize_parsed_document,
     normalize_with_llm,
-    parse_document,
 )
 from processiq.models import (
     AnalysisInsight,
@@ -56,6 +54,13 @@ from processiq.persistence.profile_store import load_profile, save_profile
 from processiq.persistence.vector_store import embed_analysis, find_similar_analyses
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_EXTENSIONS: set[str] = set()
+if settings.document_ingestion_enabled:
+    from processiq.ingestion.docling_parser import (
+        SUPPORTED_EXTENSIONS,
+        parse_document,
+    )
 
 
 @dataclass
@@ -829,6 +834,10 @@ def extract_from_file(
             )
         else:
             # Use Docling for PDFs, images, DOCX, etc.
+            if not settings.document_ingestion_enabled:
+                raise ProcessIQError(
+                    f"File type '{suffix}' is not supported. Please upload a CSV or Excel file."
+                )
             logger.info("Using Docling parser for %s file", suffix)
             parsed_doc = parse_document(file_bytes, filename)
             process_data, response = normalize_parsed_document(

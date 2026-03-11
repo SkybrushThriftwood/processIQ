@@ -28,14 +28,6 @@ from processiq.ingestion.csv_loader import (
     load_csv,
     load_csv_from_bytes,
 )
-from processiq.ingestion.docling_parser import (
-    SUPPORTED_EXTENSIONS,
-    DocumentChunk,
-    ParsedDocument,
-    parse_document,
-    parse_file,
-    parse_from_stream,
-)
 from processiq.ingestion.excel_loader import (
     list_sheets,
     load_excel,

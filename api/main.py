@@ -36,8 +36,8 @@ from api.schemas import (
     SessionsResponse,
 )
 from processiq.agent import interface
+from processiq.agent.interface import SUPPORTED_EXTENSIONS
 from processiq.analysis.visualization import GraphSchema, build_graph_schema
-from processiq.ingestion.docling_parser import SUPPORTED_EXTENSIONS
 from processiq.logging_config import setup_logging
 from processiq.models import BusinessProfile
 from processiq.persistence.analysis_store import (

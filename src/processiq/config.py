@@ -106,6 +106,12 @@ class Settings(BaseSettings):
         description="ChromaDB persistent storage directory. ENV: CHROMA_PERSIST_DIRECTORY",
     )
 
+    # Feature flags
+    document_ingestion_enabled: bool = Field(
+        default=False,
+        description="Enable document ingestion (PDF, DOCX, PPTX, images) via Docling. Requires docling installed. ENV: DOCUMENT_INGESTION_ENABLED",
+    )
+
     # Application
     log_level: str = "INFO"  # DEBUG for development, INFO for demo
     confidence_threshold: float = Field(
