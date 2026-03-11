@@ -4,6 +4,22 @@ All notable design decisions and changes to ProcessIQ are documented here.
 
 ---
 
+## 2026-03-11 (Responsible AI + ADRs)
+
+### DESIGN: Responsible AI review and security documentation
+
+- Added `docs/responsible-ai.md` (risk review, mitigations, security threat model, prompt injection section) and `docs/system-card.md` (intended use, limits, data handling).
+- Added "Not for personnel evaluation" disclaimer to export section in the UI.
+- Added Prompt Injection Resistance section covering the uploaded-document attack surface and architectural mitigations.
+- Added Security Threat Model section covering API key exposure, unencrypted SQLite, and LangSmith trace privacy.
+- Rate limiting correctly scoped as a planned improvement pending deployment (not yet implemented).
+
+### ARCHITECTURE: Architecture Decision Records (ADRs)
+
+- Created `docs/decisions/` with four ADRs: LangGraph for orchestration, ChromaDB for vector storage, LLM provider factory abstraction, FastAPI + Next.js over Streamlit.
+
+---
+
 ## 2026-03-11 (Pydantic hardening + memory synthesis node)
 
 ### CODE: Pydantic validators on all extraction and insight models

@@ -57,8 +57,8 @@ def render_privacy_notice(expanded: bool = False) -> None:
 
             **Data retention:**
 
-            - Session data: Until you close the browser or click Reset
-            - Server-side: None (stateless processing)
+            - Analysis history and business profile: Until you click "Reset my data"
+            - Server-side: Local SQLite database and ChromaDB vectors (scoped to your UUID)
             - LLM provider: Subject to their data retention policy
             """
         )

@@ -207,7 +207,7 @@ The headroom is what matters here. 16 GB accommodates ChromaDB collections, in-m
 
 #### If Always-On Reliability Is Required: Railway (~$5–10/mo)
 
-Both free tiers above have sleep behavior — apps spin down and restart on the next request. For a demo or portfolio this is acceptable. For real users who expect instant response, it is not.
+Both free tiers above have sleep behavior — apps spin down and restart on the next request. For low-traffic deployments this is acceptable. For users who expect instant response, it is not.
 
 Railway's Hobby plan has no scale-to-zero by default. Containers stay running. Cold starts are not a problem.
 

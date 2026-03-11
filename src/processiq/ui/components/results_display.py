@@ -453,7 +453,7 @@ def _render_reasoning_trace() -> None:
         for i, entry in enumerate(trace):
             st.markdown(f"{i + 1}. {entry}")
 
-        # Copy button for portfolio reviewers
+        # Copy button for sharing/audit
         trace_text = "\n".join([f"{i + 1}. {entry}" for i, entry in enumerate(trace)])
         st.text_area(
             "Copy trace:",
