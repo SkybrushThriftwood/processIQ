@@ -30,6 +30,10 @@ def render_export_section() -> None:
         return
 
     st.markdown("### Export & Next Steps")
+    st.caption(
+        "These results are AI-generated suggestions for process improvement discussion. "
+        "Not intended for personnel evaluation, performance management, or compliance decisions."
+    )
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M")
 

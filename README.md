@@ -433,6 +433,17 @@ ProcessIQ stores your business profile and analysis history in a local SQLite da
 
 ---
 
+## Responsible AI
+
+ProcessIQ includes a lightweight Responsible AI review focused on practical risks in LLM-based decision-support tools: overconfident recommendations, misuse (scope creep), and handling potentially sensitive business information.
+
+- Review + mitigations: `docs/responsible-ai.md`
+- 1-page artifact (intended use, limits, data handling): `docs/system-card.md`
+
+Key architectural decisions are documented in [`docs/decisions/`](docs/decisions/) as Architecture Decision Records (ADRs).
+
+---
+
 ## Limitations
 
 - ROI estimates are assumption-driven, not actuarial
