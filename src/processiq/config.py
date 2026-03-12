@@ -112,7 +112,7 @@ class Settings(BaseSettings):
 
     # Feature flags
     document_ingestion_enabled: bool = Field(
-        default=False,
+        default=True,
         description="Enable document ingestion (PDF, DOCX, PPTX, images) via Docling. Requires docling installed. ENV: DOCUMENT_INGESTION_ENABLED",
     )
 

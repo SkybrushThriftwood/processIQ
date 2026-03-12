@@ -2827,6 +2827,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "chromadb" },
+    { name = "docling" },
     { name = "fastapi" },
     { name = "instructor" },
     { name = "jinja2" },
@@ -2848,11 +2849,6 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
-[package.optional-dependencies]
-ingestion = [
-    { name = "docling" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
@@ -2868,7 +2864,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "chromadb", specifier = ">=1.4.1" },
-    { name = "docling", marker = "extra == 'ingestion'", specifier = ">=2.71.0" },
+    { name = "docling", specifier = ">=2.71.0" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "instructor", specifier = ">=1.14.4" },
     { name = "jinja2", specifier = ">=3.1.4" },
@@ -2889,7 +2885,6 @@ requires-dist = [
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
 ]
-provides-extras = ["ingestion"]
 
 [package.metadata.requires-dev]
 dev = [
