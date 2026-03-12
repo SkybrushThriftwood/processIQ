@@ -5,10 +5,11 @@ WORKDIR /app
 RUN pip install uv
 
 COPY pyproject.toml uv.lock README.md ./
-COPY src/ src/
-COPY api/ api/
 
 RUN uv sync --no-dev
+
+COPY src/ src/
+COPY api/ api/
 
 EXPOSE 8000
 
