@@ -701,9 +701,9 @@ def normalize_parsed_document(
 
     # Build context about the document
     additional_context = f"""
-This content was extracted from a document file: {document.metadata.get('filename', 'unknown')}
-Format: {document.metadata.get('format', 'unknown')}
-Pages: {document.metadata.get('page_count', 'unknown')}
+This content was extracted from a document file: {document.metadata.get("filename", "unknown")}
+Format: {document.metadata.get("format", "unknown")}
+Pages: {document.metadata.get("page_count", "unknown")}
 Contains tables: {document.has_tables}
 
 The document may contain process workflow information in tables, lists, or prose.
