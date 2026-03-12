@@ -1,11 +1,11 @@
 """Constraint models for ProcessIQ."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     """Optimization priority options."""
 
     COST_REDUCTION = "cost_reduction"

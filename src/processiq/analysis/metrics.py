@@ -10,7 +10,7 @@ LLM interprets whether those numbers indicate waste or value.
 import logging
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from processiq.models import BusinessProfile, ProcessData
 
@@ -93,7 +93,7 @@ _PROCESSING_PATTERNS = [
 ]
 
 
-class StepType(str, Enum):
+class StepType(StrEnum):
     """Inferred step type based on name/characteristics.
 
     These are hints for the LLM, not definitive classifications.
