@@ -185,7 +185,7 @@ def initial_analysis_node(state: AgentState) -> dict[str, Any]:
 
     # Calculate metrics (FACTS, not judgments)
     metrics = calculate_process_metrics(process)
-    metrics_text = format_metrics_for_llm(metrics)
+    metrics_text = format_metrics_for_llm(metrics, process)
 
     logger.debug(
         "Metrics calculated: %d steps, %.1fh total, %d reviews, %d external",

@@ -600,7 +600,7 @@ Non-technical users are often skeptical of AI tools. A bakery owner who built th
 | Component | Privacy Approach |
 |-----------|------------------|
 | File upload | In-memory BytesIO, garbage-collected after extraction |
-| Extracted data | Streamlit session_state (browser-local) |
+| Extracted data | Browser session (client-side, not persisted to server) |
 | Conversation | LangGraph checkpointer (local SQLite, user-controlled) |
 | LLM calls | Minimal context sent, no PII logged |
 

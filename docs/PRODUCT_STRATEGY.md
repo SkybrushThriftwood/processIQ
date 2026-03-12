@@ -178,40 +178,17 @@ This section covers the practical side of getting ProcessIQ in front of real use
 
 The right hosting platform changes as the product grows. The rule is: use the simplest option that meets current requirements. Over-engineering the infrastructure before you have users is wasted effort.
 
-#### Phase 1 Deployment: Streamlit Community Cloud
+#### Current Deployment: Railway (~$5–10/mo)
 
-The default starting point. Connect your GitHub repo, set secrets (API keys), and the app is live at a public URL. No CLI, no Docker, no config files.
-
-**Specifications:**
-- ~1 GB RAM — adequate for a LangGraph app making API calls (no local models loaded)
-- Apps sleep after 12 hours of inactivity; wake time is 5–15 seconds
-- No restrictions on outbound HTTPS (OpenAI/Anthropic calls work)
-- Completely free
-
-**Limitations to watch:**
-- **Ephemeral file system** — SQLite data (LangGraph `SqliteSaver` checkpoints, `user_store.py` UUID sessions) is wiped on every restart or redeploy. For Phase 1 testing this is acceptable; for real users who expect session continuity, it is not. This is the primary migration trigger, not RAM.
-- **Memory pressure** — when ChromaDB is added, the in-process vector store will push toward the 1 GB ceiling. This is the secondary migration trigger.
-
-#### Phase 2 Migration: HuggingFace Spaces
-
-When ChromaDB is integrated, migrate to HuggingFace Spaces.
+FastAPI backend and Next.js frontend are deployed as separate services on Railway. No sleep behavior on the Hobby plan — containers stay running. Cold starts are not a problem.
 
 **Specifications:**
-- 16 GB RAM, 2 vCPUs — the most generous free tier available
-- 50 GB non-persistent disk
-- Sleeps after 48 hours of inactivity
-- Standard HTTPS (port 443) unrestricted — API calls work normally
-- Deployment via Git push or HF CLI; secrets managed in the Space settings UI
+- Persistent file system — SQLite data survives redeploys
+- No memory pressure constraints for the current workload
+- Outbound HTTPS unrestricted (OpenAI/Anthropic calls work normally)
+- Secrets managed via Railway environment variables
 
-The headroom is what matters here. 16 GB accommodates ChromaDB collections, in-memory LangGraph state, and pandas DataFrames without the memory pressure that would hit Streamlit Community Cloud.
-
-#### If Always-On Reliability Is Required: Railway (~$5–10/mo)
-
-Both free tiers above have sleep behavior — apps spin down and restart on the next request. For low-traffic deployments this is acceptable. For users who expect instant response, it is not.
-
-Railway's Hobby plan has no scale-to-zero by default. Containers stay running. Cold starts are not a problem.
-
-**Decision rule:** If you are showing the app to people who matter (potential users, evaluators) and a 15-second cold start would undermine confidence, pay the $5–10/month and use Railway. Otherwise, stay on the free tiers until there is evidence of real usage.
+**Decision rule:** If traffic grows significantly and costs become a concern, evaluate moving to a free tier (HuggingFace Spaces offers 16 GB RAM). The migration trigger is cost, not capability.
 
 ---
 
@@ -262,8 +239,8 @@ This data tells you which features are used, where users drop off, and whether t
 
 #### In-App Feedback: Two Layers
 
-**Layer 1 — Quick rating (Streamlit built-in):**
-Streamlit 1.33+ has `st.feedback()` — a thumbs up/down or star widget. Add it at the bottom of the results view: "Was this analysis useful?" Fire the result as a PostHog event so it is recorded alongside the session data.
+**Layer 1 — Quick rating (in-app):**
+Add a thumbs up/down widget at the bottom of the results view: "Was this analysis useful?" Fire the result as a PostHog event so it is recorded alongside the session data.
 
 **Layer 2 — Qualitative form (Tally.so):**
 For users who want to say more, link a Tally.so form in the sidebar. Tally is free, clean, and requires no backend — responses land in a spreadsheet. Ask three questions:
@@ -336,10 +313,10 @@ Launch on Product Hunt after you have initial real users and at least a few genu
 ```
 Week -3 to -2
   Submit to BetaList (takes 1-2 weeks to be listed)
-  Deploy stable URL on Streamlit Community Cloud
+  Verify stable deployment on Railway
   Set up Sentry (passive, 4 lines of code)
   Set up PostHog event tracking at key interactions
-  Add st.feedback() widget to results view
+  Add feedback widget to results view
   Add Tally.so feedback link to sidebar
 
 Week -1
@@ -367,7 +344,7 @@ Month 2+
   Submit to AI tool directories: There's An AI For That, FutureTools, AI Tool directories
   Launch on Product Hunt — now you have users and testimonials to support the listing
   Post on Process Excellence Network as a practitioner resource
-  Write a technical post about the LangGraph + Streamlit architecture for dev communities
+  Write a technical post about the LangGraph + FastAPI + Next.js architecture for dev communities
 ```
 
 ---

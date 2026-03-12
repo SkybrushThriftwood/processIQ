@@ -576,10 +576,13 @@ def _create_empty_metrics(name: str) -> ProcessMetrics:
     )
 
 
-def format_metrics_for_llm(metrics: ProcessMetrics) -> str:
+def format_metrics_for_llm(
+    metrics: ProcessMetrics, process: ProcessData | None = None
+) -> str:
     """Format metrics as a structured text for LLM consumption.
 
     This creates a clear, parseable format that the LLM can reason about.
+    Pass the original ProcessData to include per-step extraction notes.
     """
     lines = [
         f"# Process: {metrics.process_name}",
@@ -631,5 +634,19 @@ def format_metrics_for_llm(metrics: ProcessMetrics) -> str:
             f"- Has dependency info: {'Yes' if metrics.has_dependencies else 'No'}",
         ]
     )
+
+    # Per-step extraction notes (assumptions, ambiguities flagged during extraction).
+    if process is not None:
+        step_notes = [
+            (s.step_name, s.notes) for s in process.steps if s.notes and s.notes.strip()
+        ]
+        if step_notes:
+            lines.append("")
+            lines.append("## Extraction Notes (assumptions and ambiguities)")
+            lines.append(
+                "These were flagged during data extraction — treat as context, not errors."
+            )
+            for name, note in step_notes:
+                lines.append(f"- {name}: {note.strip()}")
 
     return "\n".join(lines)

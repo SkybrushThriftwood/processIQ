@@ -18,9 +18,11 @@ WEIGHT_PROCESS = 0.6
 WEIGHT_CONSTRAINTS = 0.25
 WEIGHT_PROFILE = 0.15
 
-assert (
+assert (  # nosec B101 — module-level invariant, not a runtime security check
     abs(WEIGHT_PROCESS + WEIGHT_CONSTRAINTS + WEIGHT_PROFILE - 1.0) < 1e-9
-), f"Confidence weights must sum to 1.0, got {WEIGHT_PROCESS + WEIGHT_CONSTRAINTS + WEIGHT_PROFILE}"
+), (
+    f"Confidence weights must sum to 1.0, got {WEIGHT_PROCESS + WEIGHT_CONSTRAINTS + WEIGHT_PROFILE}"
+)
 
 
 @dataclass

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { AnalysisInsight, GraphSchema, Issue, ProcessData, Recommendation, RuledOutOption } from "@/lib/types";
 import { submitFeedback } from "@/lib/api";
@@ -740,39 +740,20 @@ function RuledOutSection({ items }: { items: RuledOutOption[] }) {
 
 function RecommendationsTab({
   insight,
-  sessionId,
+  states,
+  onRate,
+  onToggleHidden,
+  onSubmitReason,
   onHighlightSteps,
 }: {
   insight: AnalysisInsight;
-  sessionId?: string | null;
+  states: RecState[];
+  onRate: (i: number, rating: RecRating) => void;
+  onToggleHidden: (i: number) => void;
+  onSubmitReason: (i: number, reason: string) => void;
   onHighlightSteps: (steps: string[]) => void;
 }) {
   const recs = insight.recommendations ?? [];
-  const [states, setStates] = useState<RecState[]>(() =>
-    recs.map(() => ({ rating: null, hidden: false, showReasonPicker: false, freeText: "", reasonSubmitted: false }))
-  );
-
-  function setRecState(i: number, patch: Partial<RecState>) {
-    setStates((prev) => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
-  }
-
-  function handleRate(i: number, rating: RecRating) {
-    setRecState(i, { rating, reasonSubmitted: false });
-    if (!sessionId) return;
-    const rec = recs[i];
-    if (rating === "helpful") {
-      submitFeedback(sessionId, { accepted: [rec.title], rejected: [], reasons: [] }).catch(() => {});
-    } else if (rating === "not_helpful") {
-      submitFeedback(sessionId, { accepted: [], rejected: [rec.title], reasons: [] }).catch(() => {});
-    }
-  }
-
-  function handleSubmitReason(i: number, reason: string) {
-    setRecState(i, { reasonSubmitted: true });
-    if (!sessionId) return;
-    const rec = recs[i];
-    submitFeedback(sessionId, { accepted: [], rejected: [rec.title], reasons: [reason] }).catch(() => {});
-  }
 
   if (recs.length === 0) {
     return <p className="text-sm text-ink-muted py-4">No recommendations generated.</p>;
@@ -785,10 +766,10 @@ function RecommendationsTab({
           key={i}
           rec={rec}
           index={i}
-          state={states[i]}
-          onRate={(rating) => handleRate(i, rating)}
-          onToggleHidden={() => setRecState(i, { hidden: !states[i].hidden })}
-          onSubmitReason={(reason) => handleSubmitReason(i, reason)}
+          state={states[i] ?? { rating: null, hidden: false, showReasonPicker: false, freeText: "", reasonSubmitted: false }}
+          onRate={(rating) => onRate(i, rating)}
+          onToggleHidden={() => onToggleHidden(i)}
+          onSubmitReason={(reason) => onSubmitReason(i, reason)}
           onHighlightSteps={onHighlightSteps}
         />
       ))}
@@ -1138,6 +1119,43 @@ export function ProcessIntelligencePanel({
 }: ProcessIntelligencePanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
+  // Recommendation feedback state — lifted here so tab switches don't reset it.
+  const recs = insight.recommendations ?? [];
+  const [recStates, setRecStates] = useState<RecState[]>(() =>
+    recs.map(() => ({ rating: null, hidden: false, showReasonPicker: false, freeText: "", reasonSubmitted: false }))
+  );
+
+  // Reset when a new analysis result arrives.
+  useEffect(() => {
+    setRecStates(
+      (insight.recommendations ?? []).map(() => ({
+        rating: null, hidden: false, showReasonPicker: false, freeText: "", reasonSubmitted: false,
+      }))
+    );
+  }, [insight]);
+
+  function setRecState(i: number, patch: Partial<RecState>) {
+    setRecStates((prev) => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+  }
+
+  function handleRate(i: number, rating: RecRating) {
+    setRecState(i, { rating, reasonSubmitted: false });
+    if (!sessionId) return;
+    const rec = recs[i];
+    if (rating === "helpful") {
+      submitFeedback(sessionId, { accepted: [rec.title], rejected: [], reasons: [] }).catch(() => {});
+    } else if (rating === "not_helpful") {
+      submitFeedback(sessionId, { accepted: [], rejected: [rec.title], reasons: [] }).catch(() => {});
+    }
+  }
+
+  function handleSubmitReason(i: number, reason: string) {
+    setRecState(i, { reasonSubmitted: true });
+    if (!sessionId) return;
+    const rec = recs[i];
+    submitFeedback(sessionId, { accepted: [], rejected: [rec.title], reasons: [reason] }).catch(() => {});
+  }
+
   return (
     <div className="flex flex-col h-full bg-dark-bg">
       {/* Tab bar */}
@@ -1210,7 +1228,14 @@ export function ProcessIntelligencePanel({
         )}
         {activeTab === "issues" && <IssuesTab insight={insight} />}
         {activeTab === "recommendations" && (
-          <RecommendationsTab insight={insight} sessionId={sessionId} onHighlightSteps={onHighlightSteps} />
+          <RecommendationsTab
+            insight={insight}
+            states={recStates}
+            onRate={handleRate}
+            onToggleHidden={(i) => setRecState(i, { hidden: !recStates[i].hidden })}
+            onSubmitReason={handleSubmitReason}
+            onHighlightSteps={onHighlightSteps}
+          />
         )}
         {activeTab === "flow" && (
           <FlowTab graphSchema={graphSchema} highlightedSteps={highlightedSteps} />

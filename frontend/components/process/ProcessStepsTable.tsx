@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProcessData, ProcessStep } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,30 @@ const EDITABLE_FIELDS: { key: keyof ProcessStep; label: string; unit?: string; t
   { key: "error_rate_pct", label: "Error %", type: "number" },
   { key: "resources_needed", label: "Resources", type: "number" },
 ];
+
+function StepNotesTooltip({ notes }: { notes: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [above, setAbove] = useState(false);
+
+  function handleMouseEnter() {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    setAbove(spaceAbove > spaceBelow);
+  }
+
+  return (
+    <div ref={ref} onMouseEnter={handleMouseEnter} className="absolute left-0 top-0 w-full h-full group/tooltip">
+      <div className={cn(
+        "pointer-events-none absolute left-0 z-10 hidden group-hover/tooltip:block w-64 rounded-md border border-dark-border bg-dark-card px-2.5 py-1.5 text-xs text-ink-muted shadow-lg",
+        above ? "bottom-full mb-1" : "top-full mt-1"
+      )}>
+        {notes}
+      </div>
+    </div>
+  );
+}
 
 function EditableCell({
   value,
@@ -114,24 +138,27 @@ export function ProcessStepsTable({ processData, onChange }: ProcessStepsTablePr
 
       <div className="border border-dark-border rounded-xl overflow-hidden">
         {/* Header */}
-        <div className="grid bg-dark-card border-b border-dark-border" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}>
+        <div className="grid bg-dark-card border-b border-dark-border" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1.5fr" }}>
           {EDITABLE_FIELDS.map((f) => (
             <div key={f.key} className="px-2 py-1.5 text-xs font-semibold text-ink-faint uppercase tracking-wide">
               {f.label}
             </div>
           ))}
+          <div className="px-2 py-1.5 text-xs font-semibold text-ink-faint uppercase tracking-wide">
+            Depends on
+          </div>
         </div>
 
         {/* Rows */}
-        <div className="divide-y divide-dark-border max-h-56 overflow-y-auto bg-dark-surface">
+        <div className="divide-y divide-dark-border max-h-80 overflow-y-auto bg-dark-surface">
           {localSteps.map((step, rowIndex) => (
             <div
               key={rowIndex}
               className="grid hover:bg-dark-hover transition-colors"
-              style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}
+              style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1.5fr" }}
             >
               {EDITABLE_FIELDS.map((field) => (
-                <div key={field.key} className="px-1 py-1">
+                <div key={field.key} className="px-1 py-1 relative group/cell">
                   <EditableCell
                     value={step[field.key] as string | number | undefined}
                     type={field.type}
@@ -139,8 +166,14 @@ export function ProcessStepsTable({ processData, onChange }: ProcessStepsTablePr
                     onStartEdit={() => setEditingCell({ rowIndex, field: field.key })}
                     onCommit={(val) => commitEdit(rowIndex, field.key, val)}
                   />
+                  {field.key === "step_name" && step.notes && (
+                    <StepNotesTooltip notes={step.notes} />
+                  )}
                 </div>
               ))}
+              <div className="px-2 py-1.5 text-xs text-ink-faint">
+                {step.depends_on && step.depends_on.length > 0 ? step.depends_on.join(", ") : "—"}
+              </div>
             </div>
           ))}
         </div>
@@ -148,23 +181,24 @@ export function ProcessStepsTable({ processData, onChange }: ProcessStepsTablePr
         {/* Summary row */}
         <div
           className="grid border-t-2 border-dark-border bg-dark-card"
-          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}
+          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1.5fr" }}
         >
           <div className="px-2 py-1.5 text-xs font-semibold text-ink-muted">
             Total ({localSteps.length})
           </div>
-          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-right pr-3">
+          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-left pl-2">
             {totalTime.toFixed(1)}
           </div>
-          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-right pr-3">
-            {totalResources}
-          </div>
-          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-right pr-3">
-            {avgErrorRate != null ? `${avgErrorRate.toFixed(1)}%` : "—"}
-          </div>
-          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-right pr-3">
+          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-left pl-2">
             {totalCost > 0 ? `$${totalCost.toLocaleString()}` : "—"}
           </div>
+          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-left pl-2">
+            {avgErrorRate != null ? `ø ${avgErrorRate.toFixed(1)}%` : "—"}
+          </div>
+          <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-left pl-2">
+            {totalResources}
+          </div>
+          <div className="px-2 py-1.5 text-xs text-ink-faint">—</div>
         </div>
       </div>
 

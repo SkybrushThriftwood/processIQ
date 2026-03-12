@@ -74,6 +74,7 @@ class FeedbackRequest(BaseModel):
     accepted: list[str] = Field(default_factory=list)
     rejected: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
+    user_id: str = ""
 
 
 class FeedbackResponse(BaseModel):

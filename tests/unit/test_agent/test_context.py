@@ -8,7 +8,6 @@ from processiq.agent.context import (
     MIN_SUBSTANTIVE_LENGTH,
     build_conversation_context,
     filter_substantive_messages,
-    is_likely_edit_request,
     serialize_process_data,
 )
 from processiq.models import ProcessData, ProcessStep
@@ -294,57 +293,3 @@ class TestBuildConversationContext:
     def test_none_process_omits_data_section(self):
         result = build_conversation_context(None, [])
         assert "Current Process Data" not in result
-
-
-# ---------------------------------------------------------------------------
-# is_likely_edit_request
-# ---------------------------------------------------------------------------
-
-
-class TestIsLikelyEditRequest:
-    def test_returns_false_when_no_process_data(self):
-        assert is_likely_edit_request("change step 1 time to 2 hours", None) is False
-
-    def test_returns_false_when_none_process(self):
-        assert is_likely_edit_request("change step 1", None) is False
-
-    def test_detects_change_with_step_reference(self, simple_process):
-        assert (
-            is_likely_edit_request("change step A time to 2 hours", simple_process)
-            is True
-        )
-
-    def test_detects_update_verb(self, simple_process):
-        assert is_likely_edit_request("update the first step", simple_process) is True
-
-    def test_detects_step_name_reference(self, simple_process):
-        # "Step A" is a step name in simple_process
-        assert is_likely_edit_request("modify Step A cost", simple_process) is True
-
-    def test_no_edit_verb_returns_false(self, simple_process):
-        # Just a question, not an edit
-        result = is_likely_edit_request("what is the total cost?", simple_process)
-        assert result is False
-
-    def test_detects_remove_verb(self, simple_process):
-        assert is_likely_edit_request("remove the last step", simple_process) is True
-
-    def test_detects_set_verb_with_step_ref(self, simple_process):
-        # "set" verb + "the" step reference → True
-        assert (
-            is_likely_edit_request("set the error rate to 5%", simple_process) is True
-        )
-
-    def test_detects_increase_verb(self, simple_process):
-        assert (
-            is_likely_edit_request("increase the first step time", simple_process)
-            is True
-        )
-
-    def test_pure_process_description_not_edit(self, simple_process):
-        # A new process description shouldn't be detected as edit
-        result = is_likely_edit_request(
-            "We receive an order, then process it, then ship it.", simple_process
-        )
-        # Should not trigger edit detection (no edit verb + no step reference)
-        assert result is False

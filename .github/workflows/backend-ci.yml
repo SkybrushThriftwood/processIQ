@@ -1,0 +1,78 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "api/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "api/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/backend-ci.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, type-check, test, scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check --output-format=github .
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run mypy src/
+
+      - name: Test (pytest, no LLM)
+        run: uv run pytest -m "not llm" --cov=src --cov-report=xml --cov-report=term-missing -q
+
+      - name: Security scan (bandit)
+        run: uv run bandit -r src/ -q
+
+      - name: Secret scan (detect-secrets)
+        run: |
+          uv run detect-secrets scan \
+            --exclude-files 'pnpm-lock\.yaml' \
+            --exclude-files '.*\.lock' \
+            --exclude-files 'uv\.lock' \
+            > .secrets.new
+          diff <(jq -S '.results' .secrets.baseline) <(jq -S '.results' .secrets.new) \
+            && echo "No new secrets detected." \
+            || (echo "New secrets detected! Review .secrets.new" && exit 1)
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage.xml
+          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}

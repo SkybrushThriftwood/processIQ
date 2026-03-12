@@ -18,16 +18,6 @@ from processiq.models.process import ProcessData, ProcessStep
 
 logger = logging.getLogger(__name__)
 
-# Expected columns in clean format (matches ProcessStep fields)
-EXPECTED_COLUMNS = {
-    "step_name",
-    "average_time_hours",
-    "resources_needed",
-    "error_rate_pct",
-    "cost_per_instance",
-    "depends_on",
-}
-
 # Required columns (must be present)
 REQUIRED_COLUMNS = {"step_name", "average_time_hours", "resources_needed"}
 

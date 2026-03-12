@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).parent
 
 # Create Jinja2 environment
-_env = Environment(
+# autoescape=False is intentional: templates render plain-text LLM prompts, not HTML.
+# XSS is not a concern here. nosec B701
+_env = Environment(  # nosec B701
     loader=FileSystemLoader(TEMPLATE_DIR),
     trim_blocks=True,
     lstrip_blocks=True,
@@ -231,10 +233,7 @@ def _is_conversational(content: str) -> bool:
     ]
     # Only match if the message is short (≤ 60 chars) — longer messages likely
     # contain actual edit instructions that merely end with a confirmation phrase.
-    if len(stripped) <= 60 and any(signal in lower for signal in done_signals):
-        return True
-
-    return False
+    return len(stripped) <= 60 and any(signal in lower for signal in done_signals)
 
 
 def _detect_update_template(content: str) -> str:

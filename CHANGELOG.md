@@ -4,6 +4,22 @@ All notable design decisions and changes to ProcessIQ are documented here.
 
 ---
 
+## 2026-03-12
+
+### ARCHITECTURE: CI/CD pipeline with GitHub Actions, security scanning, and pre-commit hooks
+
+- `backend-ci.yml`: ruff → mypy → pytest (non-LLM) with coverage → bandit → detect-secrets baseline diff → Codecov upload. Path-filtered to backend files only. Concurrency block cancels outdated runs.
+- `frontend-ci.yml`: pnpm install → ESLint → `tsc --noEmit` → `pnpm build`. Path-filtered to `frontend/`. Concurrency block.
+- `bandit` and `detect-secrets` added as dev dependencies; `.secrets.baseline` committed (lock files excluded from scan).
+- `.pre-commit-config.yaml` version pins updated to ruff v0.9.10 / mypy v1.15.0.
+- Fixed 4 stale test references broken by prior refactors (`analyze_with_llm_node` rename, `is_likely_edit_request` removal, `memory_synthesis` node addition, `estimated_fields` auto-population). All 408 non-LLM tests now pass.
+
+### ARCHITECTURE: Removed Streamlit UI — `src/processiq/ui/` and `app.py` deleted; FastAPI + Next.js is the only frontend.
+
+### FIX: Cross-session feedback loop now fully wired — thumbs-down on a recommendation persists to `business_profiles.rejected_approaches`, which feeds into future analyses via `system.j2` and `investigation_system.j2`. Previously only `analysis_sessions` was updated. Also added FastAPI lifespan handler to close the SQLite connection on shutdown.
+
+---
+
 ## 2026-03-11 (Responsible AI + ADRs)
 
 ### DESIGN: Responsible AI review and security documentation

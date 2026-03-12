@@ -247,7 +247,7 @@ def _generate_draft_analysis(
         )
 
         metrics = calculate_process_metrics(process_data)
-        metrics_text = format_metrics_for_llm(metrics)
+        metrics_text = format_metrics_for_llm(metrics, process_data)
 
         logger.info("Generating draft analysis for: %s", process_data.name)
         insight = _run_llm_analysis(
