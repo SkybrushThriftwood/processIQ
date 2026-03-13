@@ -14,6 +14,7 @@ class TestBuildGraph:
             "tools",
             "finalize",
             "request_clarification",
+            "memory_synthesis",
         }
         assert nodes == expected
 

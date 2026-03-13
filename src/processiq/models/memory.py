@@ -1,13 +1,13 @@
 """Memory models for ProcessIQ."""
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class Industry(str, Enum):
+class Industry(StrEnum):
     """Industry classification options."""
 
     FINANCIAL_SERVICES = "financial_services"
@@ -20,7 +20,7 @@ class Industry(str, Enum):
     OTHER = "other"
 
 
-class CompanySize(str, Enum):
+class CompanySize(StrEnum):
     """Company size classification."""
 
     STARTUP = "startup"  # < 50 employees
@@ -29,7 +29,7 @@ class CompanySize(str, Enum):
     ENTERPRISE = "enterprise"  # > 1000 employees
 
 
-class RevenueRange(str, Enum):
+class RevenueRange(StrEnum):
     """Annual revenue range for calibrating recommendation costs."""
 
     UNDER_100K = "under_100k"  # < $100K
@@ -42,7 +42,7 @@ class RevenueRange(str, Enum):
     PREFER_NOT_TO_SAY = "prefer_not_to_say"
 
 
-class RegulatoryEnvironment(str, Enum):
+class RegulatoryEnvironment(StrEnum):
     """Regulatory strictness level."""
 
     MINIMAL = "minimal"

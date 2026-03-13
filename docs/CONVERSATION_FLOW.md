@@ -140,7 +140,7 @@ This document specifies how the chat-first UI handles conversations. The primary
 ```python
 class MessageRole(str, Enum):
     USER = "user"
-    AGENT = "assistant"  # Streamlit uses "assistant" not "agent"
+    AGENT = "assistant"
     SYSTEM = "system"
 
 class MessageType(str, Enum):

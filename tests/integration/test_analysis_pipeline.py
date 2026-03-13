@@ -6,7 +6,7 @@ Run with: pytest -m llm
 
 import pytest
 
-from processiq.agent.nodes import analyze_with_llm_node
+from processiq.agent.nodes import initial_analysis_node
 from processiq.agent.state import create_initial_state
 from processiq.models import ProcessData, ProcessStep
 
@@ -124,7 +124,7 @@ def test_llm_analysis_creative_agency():
     process = _create_creative_agency_process()
     state = create_initial_state(process=process)
 
-    result = analyze_with_llm_node(state)
+    result = initial_analysis_node(state)
 
     insight = result.get("analysis_insight")
     assert insight is not None, "Expected analysis_insight in result"
@@ -144,6 +144,6 @@ def test_llm_analysis_creative_agency():
         "work on" in np.step_name.lower() and "solution" in np.step_name.lower()
         for np in insight.not_problems
     )
-    assert (
-        work_protected
-    ), "'Work on the solution' should be identified as core value work"
+    assert work_protected, (
+        "'Work on the solution' should be identified as core value work"
+    )

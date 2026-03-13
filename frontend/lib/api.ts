@@ -168,7 +168,7 @@ export async function submitFeedback(
 ): Promise<FeedbackResponse> {
   return apiFetch<FeedbackResponse>(`/feedback/${sessionId}`, {
     method: "POST",
-    body: JSON.stringify(feedback),
+    body: JSON.stringify({ ...feedback, user_id: getUserId() }),
   });
 }
 

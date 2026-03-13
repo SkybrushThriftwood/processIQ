@@ -12,6 +12,7 @@ Run locally:
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -46,10 +47,12 @@ from processiq.persistence.analysis_store import (
     get_user_sessions,
     update_session_feedback,
 )
+from processiq.persistence.db import close_connection
 from processiq.persistence.profile_store import (
     delete_profile,
     load_profile,
     save_profile,
+    update_rejected_approaches,
 )
 
 setup_logging()
@@ -111,10 +114,18 @@ def _evict_sessions() -> None:
 # App
 # ---------------------------------------------------------------------------
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # type: ignore[type-arg]
+    yield
+    close_connection()
+
+
 app = FastAPI(
     title="ProcessIQ API",
     description="AI-powered process optimization advisor",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -338,8 +349,7 @@ async def graph_schema(thread_id: str) -> GraphSchema:
     if session is None:
         raise HTTPException(
             status_code=404,
-            detail=f"No analysis found for thread '{thread_id}'. "
-            "Run /analyze first.",
+            detail=f"No analysis found for thread '{thread_id}'. Run /analyze first.",
         )
 
     return build_graph_schema(
@@ -436,4 +446,6 @@ async def post_feedback(
         rejected=body.rejected,
         reasons=body.reasons,
     )
+    if body.rejected and body.user_id:
+        update_rejected_approaches(body.user_id, body.rejected)
     return FeedbackResponse()

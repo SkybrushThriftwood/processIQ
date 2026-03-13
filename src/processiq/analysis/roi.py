@@ -205,13 +205,13 @@ def _build_assumptions(
     factors = inputs.improvement_factors
     if factors["time_reduction_pct"] > 0:
         assumptions.append(
-            f"Expected time reduction: {factors['time_reduction_pct']*100:.0f}% "
+            f"Expected time reduction: {factors['time_reduction_pct'] * 100:.0f}% "
             f"(based on {suggestion.suggestion_type.value})"
         )
 
     if factors["error_reduction_pct"] > 0 and inputs.current_error_rate_pct > 0:
         assumptions.append(
-            f"Expected error reduction: {factors['error_reduction_pct']*100:.0f}%"
+            f"Expected error reduction: {factors['error_reduction_pct'] * 100:.0f}%"
         )
         assumptions.append("Error rework cost estimated at 2x step cost")
 

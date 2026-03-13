@@ -231,6 +231,7 @@ export interface FeedbackRequest {
   accepted: string[];
   rejected: string[];
   reasons: string[];
+  user_id?: string;
 }
 
 export interface FeedbackResponse {

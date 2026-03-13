@@ -1,11 +1,11 @@
 """Analysis result models for ProcessIQ."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class SeverityLevel(str, Enum):
+class SeverityLevel(StrEnum):
     """Bottleneck severity classification."""
 
     LOW = "low"
@@ -14,7 +14,7 @@ class SeverityLevel(str, Enum):
     CRITICAL = "critical"
 
 
-class SuggestionType(str, Enum):
+class SuggestionType(StrEnum):
     """Types of improvement suggestions."""
 
     AUTOMATION = "automation"

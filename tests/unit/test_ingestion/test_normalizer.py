@@ -30,7 +30,8 @@ class TestExtractedStep:
         assert step.error_rate_pct == 0.0
         assert step.cost_per_instance == 0.0
         assert step.depends_on == []
-        assert step.estimated_fields == []
+        # Zero numeric fields are auto-flagged as estimated by the model validator
+        assert set(step.estimated_fields) == {"cost_per_instance", "error_rate_pct"}
         assert step.step_type == "normal"
 
     def test_negative_time_clamped_to_zero(self):
