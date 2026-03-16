@@ -82,12 +82,14 @@ export async function extractText(
 export async function extractFile(
   file: File,
   analysisMode?: string | null,
-  llmProvider?: string | null
+  llmProvider?: string | null,
+  currentProcessData?: ProcessData | null,
 ): Promise<ExtractResponse> {
   const form = new FormData();
   form.append("file", file);
   if (analysisMode) form.append("analysis_mode", analysisMode);
   if (llmProvider) form.append("llm_provider", llmProvider);
+  if (currentProcessData) form.append("current_process_data", JSON.stringify(currentProcessData));
 
   const res = await fetch(`${API_BASE}/extract-file`, {
     method: "POST",
@@ -118,8 +120,8 @@ export async function getGraphSchema(threadId: string): Promise<GraphSchema> {
   });
 }
 
-export async function healthCheck(): Promise<{ status: string }> {
-  return apiFetch<{ status: string }>("/health", { method: "GET" });
+export async function healthCheck(): Promise<{ status: string; demo_mode: boolean }> {
+  return apiFetch<{ status: string; demo_mode: boolean }>("/health", { method: "GET" });
 }
 
 // ---------------------------------------------------------------------------

@@ -7,13 +7,23 @@ import { cn } from "@/lib/utils";
 interface ProcessStepsTableProps {
   processData: ProcessData;
   onChange?: (updated: ProcessData) => void;
+  onEstimate?: () => void;
 }
 
 type EditingCell = { rowIndex: number; field: keyof ProcessStep } | null;
 
+function formatTime(hours: number): string {
+  if (hours <= 0) return "—";
+  const totalMinutes = Math.round(hours * 60);
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 const EDITABLE_FIELDS: { key: keyof ProcessStep; label: string; unit?: string; type: "text" | "number" }[] = [
   { key: "step_name", label: "Step", type: "text" },
-  { key: "average_time_hours", label: "Time (h)", type: "number" },
+  { key: "average_time_hours", label: "Time", type: "number" },
   { key: "cost_per_instance", label: "Cost ($)", type: "number" },
   { key: "error_rate_pct", label: "Error %", type: "number" },
   { key: "resources_needed", label: "Resources", type: "number" },
@@ -45,12 +55,14 @@ function StepNotesTooltip({ notes }: { notes: string }) {
 
 function EditableCell({
   value,
+  displayValue,
   type,
   isEditing,
   onStartEdit,
   onCommit,
 }: {
   value: string | number | undefined;
+  displayValue?: string;
   type: "text" | "number";
   isEditing: boolean;
   onStartEdit: () => void;
@@ -75,6 +87,7 @@ function EditableCell({
     );
   }
 
+  const shown = displayValue ?? (value !== undefined && value !== "" ? String(value) : "—");
   return (
     <button
       onClick={onStartEdit}
@@ -84,12 +97,12 @@ function EditableCell({
         value === undefined || value === "" ? "text-ink-faint italic" : "text-ink-muted"
       )}
     >
-      {value !== undefined && value !== "" ? String(value) : "—"}
+      {shown}
     </button>
   );
 }
 
-export function ProcessStepsTable({ processData, onChange }: ProcessStepsTableProps) {
+export function ProcessStepsTable({ processData, onChange, onEstimate }: ProcessStepsTableProps) {
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [localSteps, setLocalSteps] = useState<ProcessStep[]>(processData.steps);
 
@@ -133,7 +146,18 @@ export function ProcessStepsTable({ processData, onChange }: ProcessStepsTablePr
     <div className="space-y-1">
       <div className="flex items-center justify-between px-1">
         <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide">Process Steps</p>
-        <p className="text-xs text-ink-faint">{localSteps.length} steps · {totalTime.toFixed(1)}h total</p>
+        <div className="flex items-center gap-3">
+          {onEstimate && (
+            <button
+              onClick={onEstimate}
+              title="Ask the AI to estimate any blank or zero fields based on process context"
+              className="text-xs text-ink-faint hover:text-ink-muted border border-dark-border hover:border-ink-faint rounded px-2 py-0.5 transition-colors"
+            >
+              Estimate missing values
+            </button>
+          )}
+          <p className="text-xs text-ink-faint">{localSteps.length} steps · {formatTime(totalTime)} total</p>
+        </div>
       </div>
 
       <div className="border border-dark-border rounded-xl overflow-hidden">
@@ -161,6 +185,7 @@ export function ProcessStepsTable({ processData, onChange }: ProcessStepsTablePr
                 <div key={field.key} className="px-1 py-1 relative group/cell">
                   <EditableCell
                     value={step[field.key] as string | number | undefined}
+                    displayValue={field.key === "average_time_hours" && typeof step.average_time_hours === "number" ? formatTime(step.average_time_hours) : undefined}
                     type={field.type}
                     isEditing={editingCell?.rowIndex === rowIndex && editingCell?.field === field.key}
                     onStartEdit={() => setEditingCell({ rowIndex, field: field.key })}
@@ -187,7 +212,7 @@ export function ProcessStepsTable({ processData, onChange }: ProcessStepsTablePr
             Total ({localSteps.length})
           </div>
           <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-left pl-2">
-            {totalTime.toFixed(1)}
+            {formatTime(totalTime)}
           </div>
           <div className="px-2 py-1.5 text-xs font-semibold text-ink tabular-nums text-left pl-2">
             {totalCost > 0 ? `$${totalCost.toLocaleString()}` : "—"}

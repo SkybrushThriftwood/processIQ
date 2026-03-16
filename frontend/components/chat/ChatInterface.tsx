@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { analyzeProcess, extractFile, extractText } from "@/lib/api";
 import type {
   AnalysisInsight,
@@ -139,7 +139,11 @@ function ProcessBuildingIndicator({ processName }: { processName: string }) {
   );
 }
 
-export function ChatInterface({
+export interface ChatInterfaceHandle {
+  triggerEstimate: () => void;
+}
+
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({
   constraints,
   profile,
   analysisMode,
@@ -149,7 +153,7 @@ export function ChatInterface({
   currentProcessData,
   onProcessExtracted,
   onAnalysisComplete,
-}: ChatInterfaceProps) {
+}: ChatInterfaceProps, ref: React.Ref<ChatInterfaceHandle>) {
   const [messages, setMessages] = useState<ChatMessage[]>([{
     role: "assistant",
     content: "Describe your business process - the steps involved, roughly how long each takes, and any dependencies between them. You can also upload a file: PDF, Word document, Excel, CSV, PowerPoint, or image.",
@@ -255,10 +259,16 @@ export function ChatInterface({
     addMessage({ role: "user", content: `Uploaded: ${file.name}`, summary: `You: uploaded ${file.name}` });
     setStatus("extracting");
     try {
-      const result = await extractFile(file, analysisMode, llmProvider);
+      const activeProcessData = pendingProcessData ?? (hasResults ? currentProcessData : null);
+      const result = await extractFile(file, analysisMode, llmProvider, activeProcessData);
       setStatus("idle");
       addMessage({ role: "assistant", content: result.message });
-      if (result.process_data) { setPendingProcessData(result.process_data); onProcessExtracted?.(result.process_data); }
+      if (result.improvement_suggestions) addMessage({ role: "assistant", content: result.improvement_suggestions, summary: "Assistant: improvement suggestions" });
+      if (result.process_data) {
+        setPendingProcessData(result.process_data);
+        onProcessExtracted?.(result.process_data);
+        if (hasResults) setHasPendingEdit(true);
+      }
     } catch (err) {
       addMessage({ role: "assistant", content: `Upload error: ${err instanceof Error ? err.message : "Unknown error"}`, isError: true });
       setStatus("error"); setTimeout(() => setStatus("idle"), 2000);
@@ -269,6 +279,10 @@ export function ChatInterface({
   const handleRunAnalysis = useCallback(() => {
     if (pendingProcessData && !isLoading) runAnalysis(pendingProcessData);
   }, [pendingProcessData, isLoading, runAnalysis]);
+
+  useImperativeHandle(ref, () => ({
+    triggerEstimate: () => handleTextSubmit("estimate missing values"),
+  }), [handleTextSubmit]);
 
   return (
     <div
@@ -385,4 +399,4 @@ export function ChatInterface({
       </p>
     </div>
   );
-}
+});

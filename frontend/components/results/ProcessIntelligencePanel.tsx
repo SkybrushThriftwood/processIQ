@@ -12,6 +12,19 @@ const ProcessGraph = dynamic(
 );
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatTime(hours: number): string {
+  if (hours <= 0) return "—";
+  const totalMinutes = Math.round(hours * 60);
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+// ---------------------------------------------------------------------------
 // Tab types
 // ---------------------------------------------------------------------------
 
@@ -946,7 +959,7 @@ function DataTab({ processData }: { processData?: ProcessData | null }) {
           <thead>
             <tr className="border-b border-dark-border bg-dark-card">
               <th className="text-left px-3 py-2 font-semibold text-ink-muted uppercase tracking-wide">Step</th>
-              <th className="text-right px-3 py-2 font-semibold text-ink-muted uppercase tracking-wide whitespace-nowrap">Time (h)</th>
+              <th className="text-right px-3 py-2 font-semibold text-ink-muted uppercase tracking-wide whitespace-nowrap">Time</th>
               <th className="text-right px-3 py-2 font-semibold text-ink-muted uppercase tracking-wide">Resources</th>
               <th className="text-right px-3 py-2 font-semibold text-ink-muted uppercase tracking-wide whitespace-nowrap">Error %</th>
               <th className="text-right px-3 py-2 font-semibold text-ink-muted uppercase tracking-wide whitespace-nowrap">Cost ($)</th>
@@ -957,7 +970,7 @@ function DataTab({ processData }: { processData?: ProcessData | null }) {
             {steps.map((step, i) => (
               <tr key={i} className={cn("border-b border-dark-border", i % 2 === 0 ? "bg-dark-bg" : "bg-dark-card/40")}>
                 <td className="px-3 py-2 font-medium text-ink">{step.step_name}</td>
-                <td className="px-3 py-2 text-right text-ink-muted tabular-nums">{step.average_time_hours}</td>
+                <td className="px-3 py-2 text-right text-ink-muted tabular-nums">{formatTime(step.average_time_hours)}</td>
                 <td className="px-3 py-2 text-right text-ink-muted tabular-nums">{step.resources_needed}</td>
                 <td className="px-3 py-2 text-right text-ink-muted tabular-nums">
                   {step.error_rate_pct != null ? `${step.error_rate_pct}%` : "—"}
@@ -978,7 +991,7 @@ function DataTab({ processData }: { processData?: ProcessData | null }) {
                 Total ({steps.length} steps)
               </td>
               <td className="px-3 py-2 text-right font-semibold text-ink tabular-nums">
-                {totalTime.toFixed(1)}
+                {formatTime(totalTime)}
               </td>
               <td className="px-3 py-2 text-right font-semibold text-ink tabular-nums">
                 {totalResources}
