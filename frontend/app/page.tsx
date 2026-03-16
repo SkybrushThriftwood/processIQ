@@ -9,7 +9,7 @@ import type {
   GraphSchema,
   ProcessData,
 } from "@/lib/types";
-import { deleteUserData, getProfile, saveProfile } from "@/lib/api";
+import { deleteUserData, getProfile, healthCheck, saveProfile } from "@/lib/api";
 import { SettingsDrawer } from "@/components/settings/SettingsDrawer";
 import { Header } from "@/components/layout/Header";
 import { LeftRail, type NavItem } from "@/components/layout/LeftRail";
@@ -62,6 +62,8 @@ const DEFAULT_CONSTRAINTS: Constraints = {
 
 export default function HomePage() {
   const [processData, setProcessData] = useState<ProcessData | null>(null);
+  // Snapshot of process data at the time of the last analysis — never mutated by edits.
+  const [analysedProcessData, setAnalysedProcessData] = useState<ProcessData | null>(null);
   const [insight, setInsight] = useState<AnalysisInsight | null>(null);
   const [graphSchema, setGraphSchema] = useState<GraphSchema | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -75,8 +77,15 @@ export default function HomePage() {
   const [llmProvider, setLlmProvider] = useState<"anthropic" | "openai" | "ollama">("anthropic");
   const [maxCycles, setMaxCycles] = useState(3);
 
+  const [demoMode, setDemoMode] = useState(false);
+
   // Track whether the profile has been loaded from the server (to avoid saving before loading)
   const profileLoadedRef = useRef(false);
+
+  // Fetch app config on mount
+  useEffect(() => {
+    healthCheck().then((res) => setDemoMode(res.demo_mode)).catch(() => {});
+  }, []);
 
   // Load saved profile on mount
   useEffect(() => {
@@ -140,6 +149,8 @@ export default function HomePage() {
     setHighlightedSteps([]);
     setIsAnalysisLoading(false);
     setGraphSchema(newGraphSchema ?? null);
+    // Freeze a snapshot of process data for the results panel — not affected by subsequent edits.
+    setAnalysedProcessData(processData);
     setRevealState("revealing");
   }
 
@@ -159,6 +170,7 @@ export default function HomePage() {
 
   function handleNewAnalysis() {
     setProcessData(null);
+    setAnalysedProcessData(null);
     setInsight(null);
     setGraphSchema(null);
     setThreadId(null);
@@ -200,9 +212,9 @@ export default function HomePage() {
       {/* Context strip — Phase 2 only, sticky below header */}
       {hasResults && insight && (
         <ContextStrip
-          processName={processData?.name ?? runLabel ?? "Process"}
+          processName={analysedProcessData?.name ?? runLabel ?? "Process"}
           insight={insight}
-          processData={processData}
+          processData={analysedProcessData}
           constraints={constraints}
         />
       )}
@@ -232,6 +244,7 @@ export default function HomePage() {
               analysisMode={analysisMode}
               llmProvider={llmProvider}
               maxCycles={maxCycles}
+              demoMode={demoMode}
               onProfileChange={setProfile}
               onConstraintsChange={setConstraints}
               onAnalysisModeChange={setAnalysisMode}
@@ -328,7 +341,7 @@ export default function HomePage() {
                   <ProcessIntelligencePanel
                     insight={insight}
                     graphSchema={graphSchema}
-                    processData={processData}
+                    processData={analysedProcessData}
                     runLabel={runLabel}
                     sessionId={threadId}
                     highlightedSteps={highlightedSteps}

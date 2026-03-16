@@ -61,6 +61,9 @@ if settings.document_ingestion_enabled:
         parse_document,
     )
 
+# Full set of extensions accepted by /extract-file (tabular + document)
+ALL_SUPPORTED_EXTENSIONS: set[str] = {".csv", ".xlsx", ".xls"} | SUPPORTED_EXTENSIONS
+
 
 @dataclass
 class AgentResponse:
@@ -686,17 +689,26 @@ def extract_from_file(
 
     try:
         if needs_llm_merge:
-            # Force LLM path for semantic name matching
+            # Force LLM path for semantic name matching / supplement detection.
+            # Pass has_process=True so the router picks extract_update, which
+            # instructs the LLM to merge or ask for clarification rather than
+            # treating the file as a brand-new process description.
             logger.info(
                 "Existing process data found (%d steps), using LLM for file merge",
                 len(current_process_data.steps) if current_process_data else 0,
             )
             content = _file_bytes_to_text(file_bytes, suffix)
+            conversation_context = build_conversation_context(
+                process_data=current_process_data,
+                ui_messages=[],
+            )
             process_data, response = normalize_with_llm(
                 content=content,
                 additional_context=merge_context,
                 analysis_mode=analysis_mode,
                 provider=llm_provider,
+                conversation_context=conversation_context,
+                has_process=True,
             )
             used_llm = True
 

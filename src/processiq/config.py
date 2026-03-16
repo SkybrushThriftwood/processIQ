@@ -110,6 +110,12 @@ class Settings(BaseSettings):
         description="ChromaDB persistent storage directory. ENV: CHROMA_PERSIST_DIRECTORY",
     )
 
+    # Demo mode — disables Ollama, deep analysis mode, and investigation depth slider
+    demo_mode: bool = Field(
+        default=False,
+        description="Enable demo mode: greys out Ollama, deep analysis, and investigation depth in the UI. ENV: DEMO_MODE",
+    )
+
     # Feature flags
     document_ingestion_enabled: bool = Field(
         default=True,

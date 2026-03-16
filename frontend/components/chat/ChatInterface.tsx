@@ -255,10 +255,16 @@ export function ChatInterface({
     addMessage({ role: "user", content: `Uploaded: ${file.name}`, summary: `You: uploaded ${file.name}` });
     setStatus("extracting");
     try {
-      const result = await extractFile(file, analysisMode, llmProvider);
+      const activeProcessData = pendingProcessData ?? (hasResults ? currentProcessData : null);
+      const result = await extractFile(file, analysisMode, llmProvider, activeProcessData);
       setStatus("idle");
       addMessage({ role: "assistant", content: result.message });
-      if (result.process_data) { setPendingProcessData(result.process_data); onProcessExtracted?.(result.process_data); }
+      if (result.improvement_suggestions) addMessage({ role: "assistant", content: result.improvement_suggestions, summary: "Assistant: improvement suggestions" });
+      if (result.process_data) {
+        setPendingProcessData(result.process_data);
+        onProcessExtracted?.(result.process_data);
+        if (hasResults) setHasPendingEdit(true);
+      }
     } catch (err) {
       addMessage({ role: "assistant", content: `Upload error: ${err instanceof Error ? err.message : "Unknown error"}`, isError: true });
       setStatus("error"); setTimeout(() => setStatus("idle"), 2000);

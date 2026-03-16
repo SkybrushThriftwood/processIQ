@@ -9,6 +9,7 @@ Run locally:
     # Docs: http://localhost:8000/docs
 """
 
+import json
 import logging
 import os
 import time
@@ -39,13 +40,14 @@ from api.schemas import (
     SessionsResponse,
 )
 from processiq.agent import interface
-from processiq.agent.interface import SUPPORTED_EXTENSIONS
+from processiq.agent.interface import ALL_SUPPORTED_EXTENSIONS
 from processiq.analysis.visualization import GraphSchema, build_graph_schema
 from processiq.config import settings
 from processiq.export.csv_export import export_insight_csv
 from processiq.export.pdf_export import render_proposal_pdf
 from processiq.logging_config import setup_logging
 from processiq.models import BusinessProfile
+from processiq.models import ProcessData as _ProcessData
 from processiq.persistence.analysis_store import (
     delete_user_sessions,
     get_user_sessions,
@@ -133,7 +135,7 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 app.add_middleware(
     CORSMiddleware,
@@ -149,8 +151,8 @@ app.add_middleware(
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict[str, bool | str]:
+    return {"status": "ok", "demo_mode": settings.demo_mode}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -261,19 +263,19 @@ async def extract_file(
     file: Annotated[UploadFile, File()],
     analysis_mode: Annotated[str | None, Form()] = None,
     llm_provider: Annotated[str | None, Form()] = None,
+    current_process_data: Annotated[str | None, Form()] = None,
 ) -> ExtractResponse:
     logger.info("POST /extract-file — filename=%s", file.filename)
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
-    # Extension whitelist — reuses the set already defined in docling_parser.py
     ext = Path(file.filename).suffix.lower()
-    if ext not in SUPPORTED_EXTENSIONS:
+    if ext not in ALL_SUPPORTED_EXTENSIONS:
         raise HTTPException(
             status_code=415,
             detail=f"Unsupported file type '{ext}'. "
-            f"Allowed: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
+            f"Allowed: {', '.join(sorted(ALL_SUPPORTED_EXTENSIONS))}",
         )
 
     # File size check — enforced in the backend regardless of proxy limits
@@ -298,11 +300,21 @@ async def extract_file(
             detail=f"File too large. Maximum size is {MAX_FILE_BYTES // (1024 * 1024)} MB.",
         )
 
+    parsed_process_data = None
+    if current_process_data:
+        try:
+            parsed_process_data = _ProcessData.model_validate(
+                json.loads(current_process_data)
+            )
+        except Exception:
+            logger.warning("Failed to parse current_process_data form field — ignoring")
+
     result = interface.extract_from_file(
         file_bytes=file_bytes,
         filename=file.filename,
         analysis_mode=analysis_mode,
         llm_provider=llm_provider,  # type: ignore[arg-type]
+        current_process_data=parsed_process_data,
     )
 
     return ExtractResponse(

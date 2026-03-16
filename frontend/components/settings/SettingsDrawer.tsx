@@ -10,6 +10,7 @@ interface SettingsDrawerProps {
   analysisMode: string;
   llmProvider: "anthropic" | "openai" | "ollama";
   maxCycles: number;
+  demoMode?: boolean;
   onProfileChange: (p: BusinessProfile) => void;
   onConstraintsChange: (c: Constraints) => void;
   onAnalysisModeChange: (mode: string) => void;
@@ -111,6 +112,7 @@ export function SettingsDrawer({
   analysisMode,
   llmProvider,
   maxCycles,
+  demoMode = false,
   onProfileChange,
   onConstraintsChange,
   onAnalysisModeChange,
@@ -141,48 +143,56 @@ export function SettingsDrawer({
       {/* LLM Provider */}
       <SectionHeader title="LLM provider" />
       <div className="space-y-2">
-        {LLM_PROVIDERS.map((p) => (
-          <label key={p.value} className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="llm_provider"
-              value={p.value}
-              checked={llmProvider === p.value}
-              onChange={() => onLlmProviderChange(p.value)}
-              className="mt-0.5 text-accent focus:ring-accent/50 bg-dark-bg border-dark-border"
-            />
-            <div>
-              <p className="text-xs font-medium text-ink">{p.label}</p>
-              <p className="text-xs text-ink-faint">{p.description}</p>
-            </div>
-          </label>
-        ))}
+        {LLM_PROVIDERS.map((p) => {
+          const disabled = demoMode && p.value === "ollama";
+          return (
+            <label key={p.value} className={cn("flex items-start gap-2", disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer")} title={disabled ? "Not available in demo" : undefined}>
+              <input
+                type="radio"
+                name="llm_provider"
+                value={p.value}
+                checked={llmProvider === p.value}
+                onChange={() => !disabled && onLlmProviderChange(p.value)}
+                disabled={disabled}
+                className="mt-0.5 text-accent focus:ring-accent/50 bg-dark-bg border-dark-border"
+              />
+              <div>
+                <p className="text-xs font-medium text-ink">{p.label}</p>
+                <p className="text-xs text-ink-faint">{disabled ? "Not available in demo" : p.description}</p>
+              </div>
+            </label>
+          );
+        })}
       </div>
 
       {/* Analysis mode */}
       <SectionHeader title="Analysis mode" />
       <div className="space-y-2">
-        {ANALYSIS_MODES.map((mode) => (
-          <label key={mode.value} className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="analysis_mode"
-              value={mode.value}
-              checked={analysisMode === mode.value}
-              onChange={() => onAnalysisModeChange(mode.value)}
-              className="mt-0.5 text-accent focus:ring-accent/50 bg-dark-bg border-dark-border"
-            />
-            <div>
-              <p className="text-xs font-medium text-ink">{mode.label}</p>
-              <p className="text-xs text-ink-faint">{mode.description}</p>
-            </div>
-          </label>
-        ))}
+        {ANALYSIS_MODES.map((mode) => {
+          const disabled = demoMode && mode.value === "deep_analysis";
+          return (
+            <label key={mode.value} className={cn("flex items-start gap-2", disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer")} title={disabled ? "Not available in demo" : undefined}>
+              <input
+                type="radio"
+                name="analysis_mode"
+                value={mode.value}
+                checked={analysisMode === mode.value}
+                onChange={() => !disabled && onAnalysisModeChange(mode.value)}
+                disabled={disabled}
+                className="mt-0.5 text-accent focus:ring-accent/50 bg-dark-bg border-dark-border"
+              />
+              <div>
+                <p className="text-xs font-medium text-ink">{mode.label}</p>
+                <p className="text-xs text-ink-faint">{disabled ? "Not available in demo" : mode.description}</p>
+              </div>
+            </label>
+          );
+        })}
       </div>
 
       {/* Investigation depth */}
       <SectionHeader title="Investigation depth" />
-      <div className="space-y-1.5">
+      <div className={cn("space-y-1.5", demoMode && "opacity-40 cursor-not-allowed")} title={demoMode ? "Not available in demo" : undefined}>
         <div className="flex items-center justify-between">
           <label className="text-xs text-ink-muted font-medium">Max investigation cycles</label>
           <span className="text-xs font-semibold text-ink tabular-nums w-4 text-right">{maxCycles}</span>
@@ -193,15 +203,16 @@ export function SettingsDrawer({
           max={10}
           step={1}
           value={maxCycles}
-          onChange={(e) => onMaxCyclesChange(parseInt(e.target.value, 10))}
-          className="w-full accent-accent h-1.5 rounded-full bg-dark-border cursor-pointer"
+          disabled={demoMode}
+          onChange={(e) => !demoMode && onMaxCyclesChange(parseInt(e.target.value, 10))}
+          className={cn("w-full accent-accent h-1.5 rounded-full bg-dark-border", demoMode ? "cursor-not-allowed" : "cursor-pointer")}
         />
         <div className="flex justify-between text-xs text-ink-faint">
           <span>1 — fast</span>
           <span>10 — thorough</span>
         </div>
         <p className="text-xs text-ink-faint">
-          {maxCycles <= 2
+          {demoMode ? "Not available in demo" : maxCycles <= 2
             ? "Minimal investigation — faster, lower cost."
             : maxCycles <= 5
             ? "Standard investigation — good quality/speed balance."
