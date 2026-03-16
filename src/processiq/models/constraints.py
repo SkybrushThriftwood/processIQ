@@ -57,7 +57,7 @@ class Constraints(BaseModel):
 
     def is_hiring_allowed(self) -> bool:
         """Check if hiring is allowed."""
-        return not self.cannot_hire
+        return not self.no_new_hires
 
     def has_budget_limit(self) -> bool:
         """Check if there's a budget constraint."""
