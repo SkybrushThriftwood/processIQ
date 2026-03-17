@@ -165,6 +165,11 @@ export function SettingsDrawer({
             </label>
           );
         })}
+        {llmProvider === "ollama" && !demoMode && (
+          <p className="text-xs text-ink-faint leading-relaxed pt-1">
+            Note: process data extraction requires an OpenAI-compatible API. When Ollama is selected, extraction falls back to OpenAI automatically.
+          </p>
+        )}
       </div>
 
       {/* Analysis mode */}

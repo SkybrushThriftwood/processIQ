@@ -99,10 +99,6 @@ class Settings(BaseSettings):
     llm_task_investigation: LLMTaskConfig = Field(default_factory=LLMTaskConfig)
 
     # Agentic investigation loop
-    agent_loop_slider_enabled: bool = Field(
-        default=False,
-        description="Show cycle depth slider in Advanced Options. ENV: AGENT_LOOP_SLIDER_ENABLED",
-    )
     agent_max_cycles: int = Field(
         default=3,
         ge=1,
