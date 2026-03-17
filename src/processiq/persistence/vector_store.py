@@ -237,3 +237,34 @@ def find_similar_analyses(
     except Exception:
         logger.warning("ChromaDB query failed — continuing without RAG", exc_info=True)
         return []
+
+
+def delete_user_embeddings(user_id: str) -> int:
+    """Delete all ChromaDB embeddings for a user.
+
+    Called as part of the user data reset flow. Returns the number of
+    documents deleted, or 0 if ChromaDB is unavailable or nothing was found.
+    """
+    try:
+        collection = _get_collection()
+        if collection is None:
+            return 0
+
+        # Fetch all document IDs belonging to this user
+        results = collection.get(where={"user_id": user_id}, include=[])
+        ids = results.get("ids", [])
+        if not ids:
+            logger.info("No ChromaDB embeddings found for user %s", user_id[:8])
+            return 0
+
+        collection.delete(ids=ids)
+        logger.info("Deleted %d ChromaDB embeddings for user %s", len(ids), user_id[:8])
+        return len(ids)
+
+    except Exception:
+        logger.warning(
+            "Failed to delete ChromaDB embeddings for user %s",
+            user_id[:8],
+            exc_info=True,
+        )
+        return 0

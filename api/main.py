@@ -53,6 +53,7 @@ from processiq.persistence.analysis_store import (
     get_user_sessions,
     update_session_feedback,
 )
+from processiq.persistence.checkpointer import delete_user_checkpoints
 from processiq.persistence.db import close_connection
 from processiq.persistence.profile_store import (
     delete_profile,
@@ -60,6 +61,7 @@ from processiq.persistence.profile_store import (
     save_profile,
     update_rejected_approaches,
 )
+from processiq.persistence.vector_store import delete_user_embeddings
 
 setup_logging()
 
@@ -410,8 +412,14 @@ async def delete_user_data(request: Request, user_id: str) -> None:
     The frontend clears the localStorage UUID immediately after this returns.
     """
     logger.info("DELETE /profile/%s — resetting all user data", user_id[:8])
+    # Fetch thread IDs before deleting sessions — session_id == thread_id
+    sessions = get_user_sessions(user_id, limit=1000)
+    thread_ids = [s.id for s in sessions]
     delete_user_sessions(user_id)
     delete_profile(user_id)
+    delete_user_embeddings(user_id)
+    if thread_ids:
+        delete_user_checkpoints(thread_ids)
 
 
 # ---------------------------------------------------------------------------

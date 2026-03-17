@@ -9,6 +9,7 @@ The checkpointer is a singleton - one instance per application lifetime.
 """
 
 import logging
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -140,11 +141,12 @@ def delete_thread(thread_id: str) -> bool:
 
     try:
         cursor = _connection.cursor()
-        # Delete from checkpoints table (SqliteSaver uses this table name)
-        cursor.execute(
-            "DELETE FROM checkpoints WHERE thread_id = ?",
-            (thread_id,),
-        )
+        # Delete from both tables SqliteSaver maintains
+        cursor.execute("DELETE FROM checkpoints WHERE thread_id = ?", (thread_id,))
+        with suppress(Exception):
+            cursor.execute(
+                "DELETE FROM checkpoint_writes WHERE thread_id = ?", (thread_id,)
+            )
         _connection.commit()
         deleted = bool(cursor.rowcount > 0)
         if deleted:
@@ -153,3 +155,38 @@ def delete_thread(thread_id: str) -> bool:
     except Exception as e:
         logger.warning("Error deleting thread: %s", e)
         return False
+
+
+def delete_user_checkpoints(thread_ids: list[str]) -> int:
+    """Delete all checkpoints for a list of thread IDs.
+
+    Called as part of user data reset. Returns the total number of checkpoint
+    rows deleted, or 0 if the checkpointer is unavailable.
+    """
+    global _connection
+
+    if _connection is None or not thread_ids:
+        return 0
+
+    deleted_total = 0
+    try:
+        cursor = _connection.cursor()
+        placeholders = ",".join("?" * len(thread_ids))
+        cursor.execute(
+            f"DELETE FROM checkpoints WHERE thread_id IN ({placeholders})",  # nosec B608
+            thread_ids,
+        )
+        deleted_total += cursor.rowcount
+        with suppress(Exception):
+            cursor.execute(
+                f"DELETE FROM checkpoint_writes WHERE thread_id IN ({placeholders})",  # nosec B608
+                thread_ids,
+            )
+            deleted_total += cursor.rowcount
+        _connection.commit()
+        logger.info(
+            "Deleted %d checkpoint rows for %d threads", deleted_total, len(thread_ids)
+        )
+    except Exception as e:
+        logger.warning("Error deleting user checkpoints: %s", e)
+    return deleted_total
