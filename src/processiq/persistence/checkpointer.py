@@ -172,14 +172,14 @@ def delete_user_checkpoints(thread_ids: list[str]) -> int:
     try:
         cursor = _connection.cursor()
         placeholders = ",".join("?" * len(thread_ids))
-        cursor.execute(  # nosec B608
-            f"DELETE FROM checkpoints WHERE thread_id IN ({placeholders})",
+        cursor.execute(
+            f"DELETE FROM checkpoints WHERE thread_id IN ({placeholders})",  # nosec B608
             thread_ids,
         )
         deleted_total += cursor.rowcount
         with suppress(Exception):
-            cursor.execute(  # nosec B608
-                f"DELETE FROM checkpoint_writes WHERE thread_id IN ({placeholders})",
+            cursor.execute(
+                f"DELETE FROM checkpoint_writes WHERE thread_id IN ({placeholders})",  # nosec B608
                 thread_ids,
             )
             deleted_total += cursor.rowcount
