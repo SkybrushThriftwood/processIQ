@@ -170,10 +170,6 @@ export default function HomePage() {
     setHasMessages(true);
   }
 
-  const handleEmptyStatePrompt = useCallback((_text: string) => {
-    setHasMessages(true);
-  }, []);
-
   function handleNewAnalysis() {
     setProcessData(null);
     setAnalysedProcessData(null);
@@ -289,7 +285,7 @@ export default function HomePage() {
                   {/* Phase 1 empty state — shown before any messages */}
                   {!hasResults && !hasMessages && (
                     <div className="flex-shrink-0 pt-6">
-                      <EmptyState onSelectPrompt={handleEmptyStatePrompt} />
+                      <EmptyState />
                     </div>
                   )}
 
