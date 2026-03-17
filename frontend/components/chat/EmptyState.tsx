@@ -43,21 +43,13 @@ function FlowGlyph() {
   );
 }
 
-interface ExampleChipProps {
-  text: string;
-  onClick: (text: string) => void;
-}
-
-function ExampleChip({ text, onClick }: ExampleChipProps) {
+function ExampleChip({ text }: { text: string }) {
   return (
-    <button
-      onClick={() => onClick(text)}
-      className="w-full text-left text-sm text-ink-muted border border-dark-border rounded-lg px-4 py-3 bg-dark-card hover:bg-dark-hover hover:border-accent/30 hover:text-ink transition-all duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-    >
+    <div className="w-full text-left text-sm text-ink-muted border border-dark-border rounded-lg px-4 py-3 bg-dark-card">
       <span className="text-ink-faint mr-2 text-xs">&ldquo;</span>
       {text}
       <span className="text-ink-faint ml-0.5 text-xs">&rdquo;</span>
-    </button>
+    </div>
   );
 }
 
@@ -67,11 +59,7 @@ const EXAMPLE_PROMPTS = [
   "Our customer support process involves triage, escalation, and resolution but the SLA keeps slipping...",
 ];
 
-interface EmptyStateProps {
-  onSelectPrompt: (text: string) => void;
-}
-
-export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
+export function EmptyState() {
   return (
     <div className="flex flex-col items-center text-center px-6 py-8 max-w-xl mx-auto">
       <FlowGlyph />
@@ -84,10 +72,10 @@ export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
         I&rsquo;ll extract the structure, identify bottlenecks, and surface what&rsquo;s costing you time and money.
       </p>
 
-      {/* Example prompt chips */}
+      {/* Example prompts */}
       <div className="w-full space-y-2 mb-6">
         {EXAMPLE_PROMPTS.map((prompt) => (
-          <ExampleChip key={prompt} text={prompt} onClick={onSelectPrompt} />
+          <ExampleChip key={prompt} text={prompt} />
         ))}
       </div>
 

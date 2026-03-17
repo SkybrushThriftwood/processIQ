@@ -79,6 +79,7 @@ export default function HomePage() {
   const [maxCycles, setMaxCycles] = useState(3);
 
   const [demoMode, setDemoMode] = useState(false);
+  const [tracingEnabled, setTracingEnabled] = useState(false);
 
   // Track whether the profile has been loaded from the server (to avoid saving before loading)
   const profileLoadedRef = useRef(false);
@@ -86,7 +87,10 @@ export default function HomePage() {
 
   // Fetch app config on mount
   useEffect(() => {
-    healthCheck().then((res) => setDemoMode(res.demo_mode)).catch(() => {});
+    healthCheck().then((res) => {
+      setDemoMode(res.demo_mode);
+      setTracingEnabled(res.tracing_enabled);
+    }).catch(() => {});
   }, []);
 
   // Load saved profile on mount
@@ -166,10 +170,6 @@ export default function HomePage() {
     setHasMessages(true);
   }
 
-  const handleEmptyStatePrompt = useCallback((_text: string) => {
-    setHasMessages(true);
-  }, []);
-
   function handleNewAnalysis() {
     setProcessData(null);
     setAnalysedProcessData(null);
@@ -247,6 +247,7 @@ export default function HomePage() {
               llmProvider={llmProvider}
               maxCycles={maxCycles}
               demoMode={demoMode}
+              tracingEnabled={tracingEnabled}
               onProfileChange={setProfile}
               onConstraintsChange={setConstraints}
               onAnalysisModeChange={setAnalysisMode}
@@ -284,7 +285,7 @@ export default function HomePage() {
                   {/* Phase 1 empty state — shown before any messages */}
                   {!hasResults && !hasMessages && (
                     <div className="flex-shrink-0 pt-6">
-                      <EmptyState onSelectPrompt={handleEmptyStatePrompt} />
+                      <EmptyState />
                     </div>
                   )}
 

@@ -152,7 +152,12 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> dict[str, bool | str]:
-    return {"status": "ok", "demo_mode": settings.demo_mode}
+    return {
+        "status": "ok",
+        "demo_mode": settings.demo_mode,
+        "tracing_enabled": settings.langsmith_tracing
+        and bool(settings.langsmith_api_key.get_secret_value()),
+    }
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
