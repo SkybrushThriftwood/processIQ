@@ -11,6 +11,7 @@ interface SettingsDrawerProps {
   llmProvider: "anthropic" | "openai" | "ollama";
   maxCycles: number;
   demoMode?: boolean;
+  tracingEnabled?: boolean;
   onProfileChange: (p: BusinessProfile) => void;
   onConstraintsChange: (c: Constraints) => void;
   onAnalysisModeChange: (mode: string) => void;
@@ -46,7 +47,7 @@ const REGULATORY_ENVS: { value: RegulatoryEnvironment; label: string }[] = [
 ];
 
 const ANALYSIS_MODES = [
-  { value: "cost_optimized", label: "Cost optimized", description: "Fewer LLM calls, faster, cheaper" },
+  { value: "cost_optimized", label: "Cost optimized", description: "Smaller models — lower cost per analysis" },
   { value: "balanced", label: "Balanced", description: "Default — good quality vs speed trade-off" },
   { value: "deep_analysis", label: "Deep analysis", description: "More investigation cycles, higher quality" },
 ];
@@ -113,6 +114,7 @@ export function SettingsDrawer({
   llmProvider,
   maxCycles,
   demoMode = false,
+  tracingEnabled = false,
   onProfileChange,
   onConstraintsChange,
   onAnalysisModeChange,
@@ -335,6 +337,22 @@ export function SettingsDrawer({
         New analysis
       </button>
       <p className="text-xs text-ink-faint">Clears the current chat and results. Your settings are kept.</p>
+
+      {/* Data & Privacy */}
+      <SectionHeader title="Data & privacy" />
+      <div className="space-y-1.5">
+        <p className="text-xs text-ink-muted leading-relaxed">
+          Process data you enter is sent to the selected LLM provider for analysis. No data is stored by the provider beyond their standard retention policies.
+        </p>
+        <div className="flex items-center gap-2 pt-0.5">
+          <span className={cn("inline-block w-1.5 h-1.5 rounded-full flex-shrink-0", tracingEnabled ? "bg-yellow-400" : "bg-green-500")} />
+          <p className="text-xs text-ink-muted">
+            {tracingEnabled
+              ? "LangSmith tracing is enabled — LLM inputs and outputs are logged externally for debugging."
+              : "LangSmith tracing is disabled — no LLM data is sent to external logging services."}
+          </p>
+        </div>
+      </div>
 
       {/* Your Data */}
       <SectionHeader title="Your data" />

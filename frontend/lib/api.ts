@@ -134,8 +134,8 @@ export async function getGraphSchema(threadId: string): Promise<GraphSchema> {
   });
 }
 
-export async function healthCheck(): Promise<{ status: string; demo_mode: boolean }> {
-  return apiFetch<{ status: string; demo_mode: boolean }>("/health", { method: "GET" });
+export async function healthCheck(): Promise<{ status: string; demo_mode: boolean; tracing_enabled: boolean }> {
+  return apiFetch<{ status: string; demo_mode: boolean; tracing_enabled: boolean }>("/health", { method: "GET" });
 }
 
 // ---------------------------------------------------------------------------
