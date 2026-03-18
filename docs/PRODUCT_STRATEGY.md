@@ -1,384 +1,229 @@
-# ProcessIQ — Product Strategy
+# ProcessIQ Product Strategy
 
-This document covers two things: the reasoning behind the Phase 2 and Phase 3 roadmap, and the deployment strategy — how to host the app, instrument it for feedback, and find real users without relying on networking or social capital.
+## Purpose
 
----
+This document captures the product strategy behind ProcessIQ as it exists today.
 
-## The Adoption Problem for AI Analysis Tools
+It is intentionally grounded in the current repository rather than speculative go-to-market plans or unverified market claims. Where this document makes forward-looking statements, they are product hypotheses and prioritization choices, not implemented features.
 
-Most AI-powered analysis tools fail to build a user base for one of three reasons:
+## Product Thesis
 
-1. **Too much friction before value.** The user has to set things up, describe their context, wait for results — and by the time they arrive, the user has given up or lost confidence in the tool.
-2. **Value stays inside the tool.** The output is useful to the person who ran the analysis, but it never reaches the stakeholder who can approve changes. It produces insights that die on a dashboard.
-3. **The tool forgets you.** Every session starts from scratch. The user re-enters the same business context, re-describes their constraints, and gets recommendations that ignore everything it "learned" last time.
+There is a meaningful gap between:
 
-ProcessIQ Phase 1 addresses the core analysis quality. Phase 2 addresses all three of these failure modes.
+- enterprise process-mining products that expect event logs, systems integration, and budget
+- generic LLM chat tools that can discuss workflows but do not produce durable, structured analysis
 
----
+ProcessIQ is positioned in that gap.
 
-## The Market Opportunity: SMBs Without Data Engineers
+The product thesis is:
 
-Enterprise process mining (Celonis, Signavio, IBM Process Mining) is mature and expensive. These tools require:
-- Structured event logs extracted from ERP or BPM systems
-- Data engineering resources to build and maintain connectors
-- $50K–$500K annual licensing
-- Months of implementation time
+> Many teams need structured process analysis, but they only have descriptions, documents, and local business context.
 
-The result: process optimization is accessible to large enterprises with dedicated operations teams, and essentially inaccessible to everyone else.
+That means the product must be useful before any data integration work exists.
 
-The underserved market is large:
-- A 30-person professional services firm whose client onboarding process has grown chaotic
-- A mid-size manufacturer whose approval chain for equipment purchases takes three weeks
-- An operations manager at a healthcare provider who wants to document and improve their referral process but has no process mining budget
+## Target User and Job To Be Done
 
-These users have real processes, real bottlenecks, and real financial stakes — but no path to professional process analysis. ChatGPT gives them generic advice with no structure. Hiring a consultant costs $10K–$50K for a single engagement. Spreadsheets don't tell them anything they don't already know.
+### Primary user
 
-ProcessIQ's position: professional-grade process analysis, accessible from a plain-language description, calibrated to real business constraints, at zero cost.
+- operations manager
+- consultant
+- business analyst
+- process owner at a small or mid-sized organization
 
-This is not a niche. It is the majority of businesses that have any kind of operational complexity.
+### Core job
 
----
+"Help me understand where this workflow is breaking down, what to change first, and whether the recommendation fits my actual constraints."
 
-## Time-to-Value: The Most Critical Metric
+The key phrase is "my actual constraints." Generic optimization advice is easy to produce. Constraint-aware advice is the real product value.
 
-In B2B tools, the relationship between time-to-value and retention is steep. Research from SaaS product analytics consistently shows that users who don't reach a meaningful outcome in their first session rarely return.
+## Current Strategic Strengths
 
-For ProcessIQ, the "aha moment" is: the agent correctly identifies a non-obvious bottleneck (not just the longest step) and generates a constraint-respecting recommendation the user hadn't considered.
+The current codebase already supports several product choices that are worth preserving.
 
-Getting there currently requires:
-1. Describing a process in enough detail for extraction to succeed
-2. Waiting for extraction
-3. Reviewing and potentially correcting the data table
-4. Confirming analysis
-5. Waiting for analysis
-6. Reading structured results
+### 1. Fast path to value
 
-A new user who has no process ready to describe, or who describes it too vaguely, bounces before step 6. The aha moment never arrives.
+The user can start from:
 
-**Process templates (Phase 3)** collapse this path. A user can load "Invoice Approval," see a realistic pre-filled process immediately analyzed with real results, and then adjust it to reflect their actual situation. Time to first meaningful output drops from 5–10 minutes to under 60 seconds.
+- plain text
+- CSV or spreadsheet data
+- supported business documents
 
-Templates are the highest-leverage investment in new-user conversion. They are deprioritized to Phase 3 only because they require content work (curating realistic template data) rather than engineering.
+This keeps the first-use path lighter than tools that require connectors or formal process models.
 
----
+### 2. Structured output, not just conversation
 
-## Shareable Output: How Word-of-Mouth Works in Professional Contexts
+The product generates:
 
-In consumer apps, word-of-mouth happens through social sharing. In professional tools, it happens differently: one person uses a tool, gets a result they want to communicate to a colleague or manager, and the artifact they share *is* the marketing.
+- structured process data
+- typed analysis results
+- graph output
+- reusable saved sessions
+- exportable artifacts
 
-ProcessIQ's current export options (CSV, text, markdown) are functional for follow-up action but not shareable in the professional sense. Nobody emails a CSV to their VP of Operations.
+That makes the output easier to review, compare, and share than a purely conversational answer.
 
-A well-designed PDF report — process diagram, executive summary, top three issues, prioritized recommendations with ROI ranges and explicit assumptions — gets forwarded. It gets included in slide decks. It shows up in Slack with "look what this tool produced." The person who receives it asks where it came from.
+### 3. Memory improves repeat use
 
-This is why PDF/HTML report export (2D) is included in Phase 2 despite not being a "core" feature. It is the primary mechanism by which a single user becomes ten users.
+Profile persistence, recommendation feedback, saved sessions, and semantic retrieval all support a better second and third experience than the first.
 
-The process visualization (2C) is a prerequisite for this. A report without a visual process flow is a wall of text. A report with a color-coded dependency graph, bottlenecks highlighted, issues annotated — that is a document worth sending.
+This matters because a process analysis tool is only strategically useful if it becomes better calibrated over time.
 
----
+### 4. Honest uncertainty handling
 
-## The Forgetting Problem: Memory as Product Differentiation
+The confidence model and clarification behavior are important product assets.
 
-The current state: every session, the user re-enters their industry, company size, regulatory context, and constraints. The agent has no memory of what it recommended last time, what the user found useful, or what they explicitly rejected.
+They help the tool say:
 
-This creates a specific user experience failure. After two or three sessions, a user who has been using ProcessIQ consistently gets the same generic recommendations they got the first time. The agent has not learned that they are a healthcare company with a strict audit requirement and a no-hiring constraint. It has not remembered that they rejected automation suggestions last time because of IT budget limits.
+- "I need more information"
+- "this field is estimated"
+- "this recommendation is constrained"
 
-From the user's perspective: the tool is not getting smarter. It is not worth continuing to use.
+That is a better long-term trust strategy than presenting vague outputs with false precision.
 
-Persistent memory (2A and 2B) changes this. After the second session, the agent loads the user's historical feedback, their stored business profile, and their constraint history. Recommendations are calibrated against everything the agent has learned about this user's situation. The experience shifts from "AI chat" to "advisor who knows my business."
+## Main Product Risks
 
-This is the shift from a tool people try to a tool people rely on.
+These are the most important risks visible from the current implementation.
 
----
+### 1. First-run friction is still meaningful
 
-## The Outcome Gap: Why Preference Feedback Is Not Enough
+The user still needs to:
 
-The Phase 1 feedback loop (thumbs up/down per recommendation) is valuable but incomplete. It tells the agent what the user *preferred* — but preference and effectiveness are different signals.
+- describe the process clearly enough for extraction
+- review extracted data
+- run analysis
 
-A user might prefer recommendations that feel familiar and safe. They might reject recommendations that feel risky even when those recommendations would have the highest actual ROI. Conversely, they might accept recommendations they never implement because they sound reasonable in the moment.
+That is reasonable, but it means the initial "aha" moment is not instantaneous. The product still depends on decent first-session extraction quality.
 
-The outcome loop (Phase 3) closes this gap. When a user returns and the agent asks "you said you'd try automating the approval routing — did you implement it? What changed?" — the answer is high-quality signal. An implemented recommendation with positive outcomes is more informative than ten thumbs-up clicks.
+### 2. Provider messaging is more polished than the implementation
 
-Over time, an agent trained on outcomes learns what *works*, not just what users *like*. These are different things. An agent that distinguishes them gives better recommendations than one that only optimizes for stated preferences.
+The UI presents `ollama` as a local option, but extraction is not yet fully local.
 
-This is the transition from a feedback loop to a learning loop.
+This is not just a technical issue. It is a product-trust issue, because provider messaging affects user expectations around privacy and deployment.
 
----
+### 3. The product is strong for single-user analysis, weaker for organizational rollout
 
-## Document Upload: The Professional User's Real Workflow
+Today the app is best suited to:
 
-Most business process documentation does not live in CSV files. It lives in:
-- Word documents: process SOPs, standard operating procedures
-- PDFs: audit reports, compliance documentation, consulting deliverables
-- PowerPoint slides: process flow presentations, operations reviews
-- Scanned images: legacy process documentation
+- local use
+- controlled internal use
+- single-user exploratory work
 
-ProcessIQ's Docling integration handles all of these formats already. The parser exists. It is not exposed in the UI.
+It is not yet shaped for broader rollout because authentication, shared persistence, and frontend test coverage are still missing.
 
-Enabling document upload (2E) opens the tool to a professional workflow that currently has no good options. An operations manager can upload their existing 40-page SOP and ask ProcessIQ to identify improvement opportunities — without transcribing it manually. A consultant can upload a client's process flow slide deck and get structured analysis in minutes.
+## Strategic Priorities
 
-This is low implementation effort for high user-segment value. It is prioritized in Phase 2 because the technical work is already done.
+These are the highest-value product priorities given the current repository shape.
 
----
+### 1. Reduce time to first meaningful result
 
-## What RAG Adds (and What It Doesn't Replace)
+Priority goal:
+Make the first successful analysis happen faster and with less user effort.
 
-ChromaDB RAG (2F) is often described as the central Phase 2 feature. In this roadmap it is last in Phase 2, not first. The reason:
+Good next moves:
 
-RAG retrieval is valuable when there is something worth retrieving. Before a user has run multiple analyses, has built a history of process descriptions and outcomes, and has a profile with meaningful context — there is nothing in the vector store worth retrieving. RAG on an empty database returns noise.
+- improve extraction quality on partial descriptions
+- add curated starter examples or templates
+- make the extraction review step feel more guided, not just editable
 
-The correct sequencing: build the data first (2A, 2B, 2C, 2D, 2E), then retrieve it meaningfully (2F). RAG becomes genuinely useful as the system accumulates analysis history and the user's business context becomes rich enough to inform similarity search.
+Why it matters:
+If the first analysis feels slow or fragile, users do not reach the part of the product that is genuinely differentiated.
 
-The value proposition when it works: "You analyzed a similar invoicing process in March — that one had a 40% rework rate at the legal approval step. This process shows the same pattern." This is meaningfully better than any single-session analysis. But it requires sessions to have happened first.
+### 2. Make repeat usage clearly better than first usage
 
----
+Priority goal:
+Ensure the product visibly improves after a user has history.
 
-## Feature Decisions: What Was Ruled Out and Why
+Good next moves:
 
-**Multi-user collaboration** is the most commonly requested feature in B2B tools and also one of the most commonly over-built. Shared analyses require authentication, permissions, conflict resolution on concurrent edits, and notification systems. This is a significant infrastructure cost for a benefit that is partially covered by the report export feature. If a user wants to share an analysis with their manager, they export a PDF. If they want their colleague to run their own analysis, the colleague uses their own session. Multi-user collaboration implies a fundamentally different product.
+- surface why a prior session influenced the current recommendation
+- make recommendation feedback effects visible in the UI
+- strengthen saved-session comparison and revisit workflows
 
-**Real-time web search** adds latency, cost, and unpredictability to every analysis. The value proposition is benchmark data — "how long does a typical invoicing process take in the financial services industry?" Process templates serve this need for common process types with zero external dependency. Formal benchmark comparison (Phase 3) serves it for specific industry data. Neither requires live web access.
+Why it matters:
+Memory only creates product value if the user can feel it.
 
-**Email notifications and reminders** requires SMTP infrastructure, user email collection, consent management, and unsubscribe handling. The outcome tracking feature (Phase 3) achieves the same behavioral goal — prompting users to close the feedback loop — within the existing session model, with no external infrastructure.
+### 3. Treat shareable output as part of the product, not a side feature
 
-**Fine-tuning for analysis** (as distinct from fine-tuning for extraction) is a specific anti-pattern for this type of system. The analysis path requires judgment: waste vs. core value assessment, constraint conflict resolution, pattern recognition across process types. These are reasoning tasks. Fine-tuning encodes style and format, not reasoning capability. An analysis prompt that can be read and edited in `analyze.j2` will always be more maintainable and improvable than fine-tuned weights that encode the same logic opaquely.
+The PDF and proposal-style exports are strategically important because process work is rarely approved by the same person who runs the tool.
 
----
+Good next moves:
 
-## Architecture Advantage: Why This Can Be Built Incrementally
+- improve the presentation quality of exports
+- make recommendation assumptions and constraints explicit in exported reports
+- consider an "executive summary" output shape for stakeholder review
 
-One deliberate design decision in Phase 1 creates significant leverage for Phase 2: the UI never imports from `agent/graph.py` directly. All agent interaction goes through `agent/interface.py`.
+Why it matters:
+In a professional setting, shared artifacts often drive adoption more than the original interactive session.
 
-This means:
-- Every Phase 2 agent capability (memory loading, RAG retrieval, outcome injection) is added to `interface.py` and the nodes — the UI does not change
-- The report export (2D) consumes the existing `AnalysisInsight` model — no new analysis path needed
-- The Docling UI exposure (2E) routes through the existing `docling_parser.py` → normalizer path — only the file picker changes
-- A frontend migration (Phase 3+) replaces the UI layer without touching any agent, analysis, or ingestion code
+### 4. Tighten trust and privacy messaging
 
-The isolation boundary between UI and agent is the primary architectural investment that makes incremental development tractable. Each Phase 2 feature can be developed and tested independently because the integration point is narrow and well-defined.
+Good next moves:
 
----
+- align local-provider messaging with actual extraction behavior
+- keep data-retention and deletion language exact
+- avoid privacy claims that are stronger than the implementation
 
-## Success Indicators
+Why it matters:
+For this product category, trust is part of product-market fit.
 
-The roadmap succeeds if, after Phase 2:
+### 5. Improve deployment readiness and operational confidence
 
-- A returning user sees their business profile pre-populated and their historical feedback reflected in new recommendations — without re-entering anything
-- A new user can load a template, get meaningful results, and share a PDF report within 5 minutes of first use
-- An operations manager can upload their existing SOPs and receive a structured analysis of the process embedded in them
-- The agent's recommendations for a user who has completed 10 sessions are demonstrably better-calibrated than on session 1 — not just stylistically different, but more accurately targeted to what actually works for their situation
+Good next moves:
 
----
+- add authentication
+- move to shared production-ready persistence
+- add frontend automated tests
+- keep deployment and security docs aligned with the real runtime model
 
-## Deployment Strategy
+Why it matters:
+The current product already has a strong functional core. These steps make it easier to operate, extend, and deploy with confidence.
 
-This section covers the practical side of getting ProcessIQ in front of real users and collecting feedback that is actually useful — without cold outreach, networking events, or video calls. All approaches below are written and asynchronous.
+## What Not To Over-Prioritize Yet
 
----
+These are reasonable ideas, but they are not the highest-leverage product investments right now.
 
-### Hosting: Where to Run the App
+### Multi-user collaboration
 
-The right hosting platform changes as the product grows. The rule is: use the simplest option that meets current requirements. Over-engineering the infrastructure before you have users is wasted effort.
+This becomes valuable later, but it brings authentication, permissions, conflict handling, and more complex persistence with it. The current product still has higher-leverage single-user improvements available first.
 
-#### Current Deployment: Railway (~$5–10/mo)
+### Fine-tuning for analysis behavior
 
-FastAPI backend and Next.js frontend are deployed as separate services on Railway. No sleep behavior on the Hobby plan — containers stay running. Cold starts are not a problem.
+The current system benefits more from:
 
-**Specifications:**
-- Persistent file system — SQLite data survives redeploys
-- No memory pressure constraints for the current workload
-- Outbound HTTPS unrestricted (OpenAI/Anthropic calls work normally)
-- Secrets managed via Railway environment variables
+- better prompt design
+- better deterministic context
+- better retrieval and feedback use
 
-**Decision rule:** If traffic grows significantly and costs become a concern, evaluate moving to a free tier (HuggingFace Spaces offers 16 GB RAM). The migration trigger is cost, not capability.
+than from model fine-tuning.
 
----
+### Broad external-data enrichment
 
-### Instrumentation: Knowing What Users Actually Do
+External benchmarks or web lookups may become useful later, but they should not substitute for getting the core workflow, trust model, and repeat-user experience right first.
 
-Do not rely on asking users what they do. Instrument the app to record it. This removes the dependency on user interviews for basic behavioral data.
+## Strategy Summary
 
-#### Error Tracking: Sentry
+ProcessIQ is strongest when it behaves like a structured advisor rather than a generic chatbot.
 
-Install first. Four lines of code, passive — no manual instrumentation required.
+The current strategy should stay focused on:
 
-```python
-import sentry_sdk
-sentry_sdk.init(
-    dsn=settings.sentry_dsn,
-    traces_sample_rate=0.1
-)
-```
+- low-friction first use
+- visibly better repeat use
+- trust through explicit constraints and uncertainty handling
+- outputs that help the user persuade other stakeholders
 
-Sentry automatically captures uncaught exceptions, LLM API failures, validation errors, and anything that crashes a LangGraph node. You get stack traces, user session context, and a timeline of what happened before the error. Free tier: 5,000 errors/month.
+That is the clearest path from a one-off analysis experience to a tool users can rely on repeatedly.
 
-#### Event Analytics: PostHog
+## Review Notes
 
-PostHog's Python SDK captures explicit events you fire at key interactions. Free tier is 1 million events/month — more than sufficient through an entire beta period.
+This document was rewritten because the previous version mixed useful product reasoning with:
 
-```python
-import posthog
-posthog.project_api_key = settings.posthog_key
-posthog.capture(st.session_state.user_id, "analysis_completed", {
-    "step_count": len(process_data.steps),
-    "confidence_score": metrics.confidence,
-    "model_provider": settings.llm_provider,
-    "had_clarification_loop": state.clarification_rounds > 0,
-})
-```
+- stale deployment choices
+- unverifiable launch-channel advice
+- hard-coded tool recommendations not grounded in the current repo
+- roadmap assumptions that had already changed
 
-**Events worth tracking for ProcessIQ:**
-- `process_described` — user submitted a text description
-- `file_uploaded` — user uploaded a file
-- `clarification_loop_entered` — agent asked for more data
-- `data_confirmed` — user confirmed the extracted step table
-- `analysis_completed` — full analysis produced
-- `recommendation_feedback` — thumbs up/down with which recommendation
-- `export_downloaded` — which format (CSV, markdown, PDF)
-- `session_returned` — user opened the app in a new session (cross-session return rate)
+Those topics are better handled in:
 
-This data tells you which features are used, where users drop off, and whether the clarification loop is triggering too often (a sign of poor extraction quality).
-
-#### In-App Feedback: Two Layers
-
-**Layer 1 — Quick rating (in-app):**
-Add a thumbs up/down widget at the bottom of the results view: "Was this analysis useful?" Fire the result as a PostHog event so it is recorded alongside the session data.
-
-**Layer 2 — Qualitative form (Tally.so):**
-For users who want to say more, link a Tally.so form in the sidebar. Tally is free, clean, and requires no backend — responses land in a spreadsheet. Ask three questions:
-1. What type of process were you analyzing?
-2. Did the recommendations match your actual constraints?
-3. What is missing that would make this more useful?
-
-These three questions surface the issues that event analytics cannot: constraint mismatches, missing process types, and feature gaps the user encountered but did not trigger any tracked event.
-
----
-
-### Finding First Users: The Introverted Approach
-
-The core principle: **all of these channels are written and asynchronous**. None of them require video calls, in-person events, or real-time conversations. The standard advice for B2B founders ("do 50 customer discovery calls") is not the only path. It is the social path. There is a written path that works for solo builders who communicate better in text.
-
-The framing that works everywhere: **problem-sharer, not marketer.** "I built this because I couldn't find a tool that analyzed processes while respecting operational constraints. Looking for people who've run into the same wall to tell me if I solved it right." This is honest, specific, and invites genuine responses. Marketing copy invites no response.
-
-#### Pre-Launch: BetaList (2–3 Weeks Before Anything Else)
-
-Submit to [betalist.com](https://betalist.com) immediately. BetaList lists pre-launch products for early adopters who specifically want to try unfinished tools and give feedback. It takes 1–2 weeks to be approved and listed.
-
-BetaList visitors convert to email signups at 15–25% — much higher than any other channel — because they came specifically to find things to try. A small waitlist of 20–50 genuinely interested people before your first public post is worth more than 500 passive social media impressions.
-
-This requires one submission form and a landing page. Do it before anything else.
-
-#### Target Audience Communities (Highest Priority)
-
-These communities contain the actual users — operations managers, Lean practitioners, business analysts.
-
-| Community | URL | What to Post |
-|---|---|---|
-| r/processimprovement | reddit.com/r/processimprovement | 50K members, the most directly targeted subreddit — Lean/Six Sigma/operations people discussing exactly the problem ProcessIQ solves |
-| r/operations | reddit.com/r/operations | Operations managers, supply chain, workflow — problem-sharer framing |
-| r/lean | reddit.com/r/lean | Lean practitioners by definition work on process improvement |
-| r/businessanalysis | reddit.com/r/businessanalysis | Business analysts who map and document processes |
-| r/sixsigma | reddit.com/r/sixsigma | Data-driven process practitioners |
-| Process Excellence Network | processexcellencenetwork.com | 160,000 operational excellence professionals; post as a resource, not a launch announcement |
-| LinkedIn "Lean Six Sigma" Group | linkedin.com/groups | 725,000 members; written posts, async responses |
-| iSixSigma | isixsigma.com | Forum + newsletter; niche but high practitioner density |
-| Operations Nation (Slack) | operationsnation.com | COOs and operations leads at SMBs — harder to get into, higher signal when you do |
-| APQC Community | apqc.org | American Productivity and Quality Center — where serious process professionals participate |
-
-**Before posting in any community:** spend time reading existing posts and contributing genuine answers to 3–5 questions. This is not about karma farming — it is about understanding what these people actually struggle with and framing your post in terms they recognize.
-
-#### Builder Communities (Product and Positioning Feedback)
-
-These communities will not become your users, but they will give you the most honest feedback on your product framing, business model, and what you are missing. This is where you validate whether you have articulated the value correctly.
-
-| Community | What You Get |
-|---|---|
-| Indie Hackers (indiehackers.com) | Founder community. Post in "Share Your Project." Direct, honest feedback on product and positioning. Text-based forum |
-| r/SideProject | Weekly show-and-tell threads. Explicit self-promotion is the norm |
-| r/SaaS | Product and business model feedback from other builders |
-| Show HN (news.ycombinator.com) | Technical audience. High-quality comments. Permanent indexed record. Use title format: "Show HN: ProcessIQ — AI process bottleneck analyzer [link]" |
-
-**Show HN is worth doing.** Low effort, zero cost. A single ops manager who comments and tries the tool is worth more than 100 passive views. Even modest HN traction (20–50 upvotes) generates 300–800 unique visitors in 24 hours and results in a permanent public record of the launch.
-
-#### Later: Product Hunt
-
-Do not launch on Product Hunt first. The Product Hunt audience is tech enthusiasts and early adopters, not operations managers or Lean practitioners. Direct customer acquisition from Product Hunt for a niche B2B process tool will be low.
-
-What Product Hunt is useful for: generating social proof, getting indexed by AI tool directories that scrape Product Hunt listings automatically (There's An AI For That, FutureTools, etc.), and giving you a "Featured on Product Hunt" badge that adds credibility on your landing page.
-
-Launch on Product Hunt after you have initial real users and at least a few genuine testimonials. Frame the launch around what real users found valuable.
-
----
-
-### The Launch Sequence
-
-```
-Week -3 to -2
-  Submit to BetaList (takes 1-2 weeks to be listed)
-  Verify stable deployment on Railway
-  Set up Sentry (passive, 4 lines of code)
-  Set up PostHog event tracking at key interactions
-  Add feedback widget to results view
-  Add Tally.so feedback link to sidebar
-
-Week -1
-  BetaList goes live — collect first signups
-  Read 20+ posts in r/operations and r/lean to understand their language
-  Draft your "problem-sharer" post — have a specific person read it before posting
-
-Week 1 (Launch)
-  Post in r/operations — problem-sharer framing
-  Post in r/lean — same
-  Post in r/businessanalysis
-  Post "Show HN" on Hacker News
-  Post on Indie Hackers "Share Your Project"
-  Post in LinkedIn "Lean Six Sigma" group
-  Respond to every comment, even if just to acknowledge
-
-Weeks 2-4 (Iterate)
-  Follow up with anyone who engaged via DM or email — async, no calls required
-  Ask three specific questions: (1) what process type they used, (2) whether constraints were respected, (3) what was missing
-  Fix the highest-friction issues first
-  Post a brief "week 2 update" on Indie Hackers — what you learned, what you changed
-  Changelog posts do well with the builder community
-
-Month 2+
-  Submit to AI tool directories: There's An AI For That, FutureTools, AI Tool directories
-  Launch on Product Hunt — now you have users and testimonials to support the listing
-  Post on Process Excellence Network as a practitioner resource
-  Write a technical post about the LangGraph + FastAPI + Next.js architecture for dev communities
-```
-
----
-
-### The B2B Feedback Problem: Getting Useful Responses Without Interviews
-
-B2B user feedback is harder to get than consumer feedback because the person using the tool is rarely the person who decides whether the business adopts it. For ProcessIQ at this stage, the relevant user is the individual contributor — the operations analyst, the Lean coordinator, the process owner — not their manager.
-
-**What works asynchronously:**
-
-Email or DM follow-up after someone engages publicly. If a user posts a comment on your Show HN or Reddit post, reply with: "Thanks for trying it — would you be willing to answer three questions by email? Takes 5 minutes, no call needed." Most people who commented publicly will respond in writing. Keep it to three questions maximum.
-
-**The three questions that extract the most signal:**
-1. "What specific process were you analyzing, and what type of company?" — This tells you whether the tool is reaching the right use cases
-2. "Did the recommendations respect your actual constraints, or did they suggest things that weren't realistic for your situation?" — This tests the core value proposition directly
-3. "What would have to be different for you to use this regularly instead of once?" — This surfaces the retention problem, which is different from the acquisition problem
-
-Do not ask "what did you like" or "what would you improve." These produce vague, polite answers. Ask concrete situational questions that require specific answers.
-
-**Passive feedback from instrumentation:**
-PostHog event data tells you what users do. The `clarification_loop_entered` event tells you how often the agent asks for more data — if it fires on more than 30% of sessions, extraction quality is a problem. The `export_downloaded` event tells you which output format users actually want. The absence of `session_returned` events tells you the retention problem before any user tells you in writing.
-
-Instrumentation answers the "what" questions. User follow-up answers the "why" questions. You need both, but instrumentation is passive and requires no social interaction.
-
----
-
-### Realistic Expectations
-
-Getting the first 10 real users from a cold start with no audience takes longer than most launch guides imply. The realistic timeline:
-
-- **Weeks 1–2:** 2–5 users from BetaList and early Reddit posts, most of whom try the app once
-- **Month 1:** 10–30 total unique users if Show HN gets any traction
-- **Month 2–3:** 50–100 users if you iterate visibly (changelog posts, community updates) and the process improvement communities engage
-
-The metric that matters at this stage is not user count — it is **return session rate**. If a meaningful fraction of users run more than one analysis, the tool is providing real value. If everyone tries it once and leaves, the feedback mechanism (PostHog's `session_returned` event) will tell you before any user does.
-
-One user who runs 10 analyses and gives specific feedback on what broke is worth more than 100 users who tried it once. Optimize first for depth of engagement with a small number of real users, not breadth of acquisition.
+- [deployment.md](deployment.md)
+- [ROADMAP.md](../ROADMAP.md)
+- private planning notes, if needed
