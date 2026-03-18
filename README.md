@@ -9,6 +9,8 @@ AI-powered business process analysis for teams that need actionable recommendati
 ![Frontend CI](https://github.com/thomas-lucke/processIQ/actions/workflows/frontend-ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/thomas-lucke/processIQ/graph/badge.svg?token=4JYVKASHOK)](https://codecov.io/gh/thomas-lucke/processIQ)
 
+**Live demo:** [process-iq-one.vercel.app](https://process-iq-one.vercel.app)
+
 ## Product Tour
 
 <img src="docs/assets/demo.gif" alt="ProcessIQ demo showing chat input, extraction review, analysis results, and the process graph" width="920" />
