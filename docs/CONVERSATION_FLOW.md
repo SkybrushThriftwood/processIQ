@@ -1,406 +1,313 @@
 # ProcessIQ Conversation Flow
 
-**Created:** 2026-02-03
-**Last Updated:** 2026-02-18
-**Status:** Implemented
+## Purpose
 
----
+This document describes how the current web UI conversation flow works.
 
-## Overview
+It is intentionally based on the shipped Next.js frontend and FastAPI backend, not on older Streamlit behavior or future-state conversation ideas.
 
-This document specifies how the chat-first UI handles conversations. The primary interaction is conversational — the agent guides users through process analysis via a state machine that manages conversation flow.
+Important scope note:
 
-**Design Principles:**
-1. **Chat-first:** Primary interaction is conversational
-2. **Progressive disclosure:** Agent asks only what it needs
-3. **File-friendly:** Drop files anytime, agent extracts and confirms
-4. **Transparent:** User always sees and confirms extracted data
-5. **Recoverable:** User can go back or restart anytime
+- this document describes the current web app flow
+- it does not describe every capability exposed by the backend API
+- specifically, the web UI does **not** currently use `POST /continue`
 
-**Visual Design:**
-- Clean neutral design, white/light background
-- Dark text (#1e293b) for readability
-- Muted slate accent color (#475569)
-- No gradients, no background images, no emojis
-- Generous whitespace, clear hierarchy
-- Border radius: 0.375rem (6px)
+## High-Level Interaction Model
 
----
+The current UI is chat-first, but it is not "chat only."
 
-## Conversation States
+The actual interaction pattern is:
 
-```
-                          +------------------+
-                          |     WELCOME      |
-                          |   (first visit)  |
-                          +--------+---------+
-                                   |
-                    user sends message or drops file
-                                   |
-                                   v
-+--------------------------------------------------------------+
-|                        GATHERING                              |
-|                                                               |
-|  Agent is collecting process information.                     |
-|  - Extracts from text/files via Instructor                    |
-|  - Asks smart follow-up questions (never invents data)        |
-|  - Builds ProcessData                                         |
-|                                                               |
-|  Exits when: agent has minimum viable data                    |
-+----------------------------+---------------------------------+
-                             |
-              agent shows extracted data card
-              (with targeted questions + draft analysis)
-                             |
-                             v
-+--------------------------------------------------------------+
-|                       CONFIRMING                              |
-|                                                               |
-|  User reviews extracted ProcessData.                          |
-|  - Data displayed in editable card                            |
-|  - Confidence badge + improvement suggestions                 |
-|  - Three buttons: Confirm, Edit Data, Estimate Missing        |
-|                                                               |
-|  Exits when: user clicks "Confirm & Analyze"                  |
-+----------------------------+---------------------------------+
-                             |
-                      user confirms
-                             |
-                             v
-+--------------------------------------------------------------+
-|                       ANALYZING                               |
-|                                                               |
-|  Agent runs full analysis pipeline.                           |
-|  - Shows spinner: "Analyzing your process..."                 |
-|  - Calculates metrics, runs LLM analysis                      |
-|  - Produces AnalysisInsight                                   |
-|                                                               |
-|  Exits when: analysis complete or error                       |
-+----------------------------+---------------------------------+
-                             |
-              +--------------+--------------+
-              |                             |
-        analysis done               needs clarification
-              |                             |
-              v                             v
-+---------------------+       +-------------------------------+
-|      RESULTS        |       |         CLARIFYING            |
-|                     |       |                               |
-|  Summary-first      |       |  Agent needs more info:       |
-|  display:           |       |  - Low confidence             |
-|  - What I Found     |       |  - Missing critical fields    |
-|  - Main Issues      |       |                               |
-|  - Recommendations  |       |  Shows questions in chat      |
-|  - Core Value Work  |       |  User answers -> re-analyze   |
-|  - Export options    |       |                               |
-+----------+----------+       +-------------------------------+
-           |
-    user asks follow-up
-           |
-           v
-+--------------------------------------------------------------+
-|                      CONTINUING                               |
-|                                                               |
-|  User can:                                                    |
-|  - Ask questions about results                                |
-|  - Modify constraints and re-analyze                          |
-|  - Start over with new process                                |
-|                                                               |
-+--------------------------------------------------------------+
-```
+1. user describes a process or uploads a file
+2. backend extracts or updates structured `ProcessData`
+3. user reviews and edits the extracted process in a table
+4. user runs analysis
+5. results appear in a split-view layout
+6. user can refine the process and re-analyze, give feedback, export, or browse saved sessions
 
----
+That means conversation and structured editing are intentionally combined.
 
-## State Transitions
+## Current Frontend States
 
-| From | Trigger | To | Agent Action |
-|------|---------|----|--------------|
-| WELCOME | User sends message | GATHERING | Extract info, ask follow-ups |
-| WELCOME | User drops file | GATHERING | Parse file, extract data, confirm |
-| GATHERING | User provides more info | GATHERING | Update partial data, check if sufficient |
-| GATHERING | Agent has minimum data | CONFIRMING | Show data card with suggestions |
-| CONFIRMING | User edits data | CONFIRMING | Update displayed data |
-| CONFIRMING | User confirms | ANALYZING | Run analysis pipeline |
-| CONFIRMING | User clicks "Estimate Missing" | GATHERING | Send synthetic estimate request to LLM |
-| CONFIRMING | User says "add more info" | GATHERING | Continue collecting |
-| ANALYZING | Analysis complete | RESULTS | Show summary-first results |
-| ANALYZING | Confidence < 60% | CLARIFYING | Ask specific questions |
-| CLARIFYING | User answers | ANALYZING | Re-run with new info |
-| RESULTS | User asks follow-up | CONTINUING | Answer question |
-| CONTINUING | User says "start over" | WELCOME | Reset state |
-| CONTINUING | User modifies constraints | ANALYZING | Re-analyze |
-| ANY | User clicks Reset | WELCOME | Clear all state |
+The UI does not implement a formal state machine enum, but it behaves as a small set of practical states.
 
----
+### 1. Empty state
 
-## Message Types
+Shown before the user has entered any message and before results exist.
 
-### ChatMessage Schema
+Visible elements:
 
-```python
-class MessageRole(str, Enum):
-    USER = "user"
-    AGENT = "assistant"
-    SYSTEM = "system"
+- empty-state prompt
+- chat input
+- file upload action
+- settings drawer access
 
-class MessageType(str, Enum):
-    TEXT = "text"
-    FILE = "file"
-    DATA_CARD = "data_card"
-    ANALYSIS = "analysis"
-    CLARIFICATION = "clarification"
-    STATUS = "status"
-    ERROR = "error"
+### 2. Extraction / process-building state
 
-@dataclass
-class ChatMessage:
-    role: MessageRole
-    type: MessageType
-    content: str
-    timestamp: datetime
+Triggered after the user submits text or uploads a file.
 
-    # Optional structured data
-    data: Any = None                       # ProcessData, AnalysisInsight, etc.
-    file_name: str | None = None           # For FILE type
-    questions: list[dict] | None = None    # For CLARIFICATION type
-    is_editable: bool = False                          # For DATA_CARD type
-    analysis_insight: AnalysisInsight | None = None    # For ANALYSIS type
-    draft_insight: AnalysisInsight | None = None       # Draft preview after extraction
-    suggested_questions: list[str] | None = None       # Targeted follow-up suggestions
-    improvement_suggestions: str | None = None         # Post-extraction guidance
-    confidence: float | None = None                    # Data completeness score
-```
+Frontend behavior:
 
----
+- sends `/extract` or `/extract-file`
+- shows an extraction status chip
+- appends assistant messages to the chat history
+- stores returned `process_data` as the active pending process
 
-## Agent Behavior by State
+Possible backend outcomes:
 
-### WELCOME State
+- extracted process data
+- a clarification-style assistant message with `needs_input=true`
+- extraction error
 
-**Initial message (shown once per session):**
-```
-Tell me about a process you'd like to improve, or drop a file describing it.
+Important implementation detail:
+Even when the backend asks for more information, it may still return updated `process_data`.
 
-I can analyze workflows to find bottlenecks and estimate the ROI of improvements.
-```
+### 3. Review and edit state
 
----
+Once `processData` exists, the app shows the inline process table below the chat.
 
-### GATHERING State
+The user can:
 
-**Goal:** Collect enough information to build ProcessData.
+- edit extracted steps directly
+- ask for more changes in chat
+- upload another file to merge or refine the process
+- trigger "estimate missing values" from the process table
 
-**Minimum viable data:**
-- At least 2 process steps with names
-- At least one metric (time, cost, or problem frequency)
+The primary call to action at this point is:
 
-**Agent behavior:**
-1. Extract what it can from user input
-2. If input is vague: ask smart follow-up questions (smart interviewer pattern)
-3. If input is detailed enough: extract data, show data card
-4. Never invent data — prefer asking over guessing
+- `Run Analysis - <process name>`
 
-**Example dialogues:**
+There is no separate confirmation card with multiple footer buttons in the current UI. The editable table plus the run-analysis button is the real confirmation flow.
 
-*Clear input (extracts immediately):*
-```
-User: Our invoice approval has 5 steps: submit (30min), manager review
-      (1.2 hours, 5% rework), legal (2 hours), finance (45min), final
-      approval (15min).
+### 4. Analysis state
 
-Agent: I found 5 steps in your invoice approval process:
-       [DATA CARD with extracted steps]
-       Review and confirm, then I'll analyze it.
-```
+Triggered when the user clicks the run-analysis button or types a short confirmation such as `run` while pending process data exists.
 
-*Vague input (asks questions):*
-```
-User: Our marketing campaign process is a mess.
+Frontend behavior:
 
-Agent: Sounds frustrating. Walk me through a typical campaign from when
-       someone has an idea to when it goes live. What are the main steps,
-       and where do things usually get stuck?
-```
+- calls `POST /analyze`
+- shows an analysis status chip
+- appends a "Running analysis..." assistant message
 
----
+If analysis succeeds:
 
-### CONFIRMING State
+- `insight`, `threadId`, and `graphSchema` are stored
+- the reveal transition runs
+- the UI shifts into the split-layout results view
 
-**Goal:** User verifies extracted data before analysis.
+### 5. Results state
 
-**Data card features:**
-- Shows all extracted steps in a table
-- Confidence badge (data completeness score)
-- Improvement suggestions ("What would help" guidance)
-- Per-field estimated value markers (asterisks on AI-estimated values)
-- Targeted follow-up questions based on data gaps
-- Draft analysis preview (when confidence >= 50%)
-- Two buttons (rendered in the data card footer):
-  - **Confirm & Analyze** — proceed to full analysis
-  - **Estimate Missing** — ask LLM to fill in missing values (only shown when gaps exist)
-- "I have more to add" in the chat input returns to GATHERING
+After the reveal transition completes, the page becomes a two-column layout:
 
----
+- left side: chat plus editable process table
+- right side: results panel
 
-### ANALYZING State
+The results panel currently includes these tabs:
 
-**Goal:** Run analysis and show progress.
+- Overview
+- Issues
+- Recommendations
+- Flow
+- Scenarios
+- Data
 
-**Progress display:**
-- Spinner with message: "Analyzing your process..."
-- Analysis runs: metrics calculation -> LLM analysis via `analyze.j2` -> `AnalysisInsight`
+The user can also:
 
-**Implementation:**
-- `analysis_pending` flag triggers analysis during render cycle
-- Analysis executes in `execute_pending_analysis()` in handlers.py
-- Results stored in session state as `analysis_insight`
+- give thumbs-up / thumbs-down recommendation feedback
+- export Markdown
+- export plain text
+- export PDF
 
----
+The current web UI does not expose CSV export.
 
-### CLARIFYING State
+### 6. Post-result refinement state
 
-**Goal:** Get specific missing data that affects analysis quality.
+After results exist, the user can continue working in the chat or upload another file.
 
-**Triggered when:**
-- Confidence score < 60%
-- Critical field missing (e.g., no time data at all)
+In this state the chat is used for:
 
-**Agent behavior:**
-- Explain why the question matters
-- Accept "I don't know" gracefully
-- Merge user responses into business profile notes
-- Re-run analysis with new context
+- making changes to the extracted process
+- supplying missing context
+- refining the current process description
 
----
+When new process data is returned after a previous analysis:
 
-### RESULTS State
+- the updated process becomes `pendingProcessData`
+- the UI shows `Re-analyse - <process name>`
 
-**Goal:** Display analysis results in summary-first layout.
+This is an important distinction:
+The web app does not currently use the backend's checkpointed `/continue` path for follow-up questions. It primarily treats post-result input as new extraction or refinement against the current process model, then re-runs analysis.
 
-**Display components (via `results_display.py`):**
-1. **Process Summary** — What the LLM understood about the process
-2. **Main Issues** — Problems identified with severity badges, linked to recommendations
-3. **Recommendations** — Specific suggestions with feasibility, expected benefit, trade-offs
-4. **Core Value Work** — Steps the LLM identified as NOT problems (e.g., creative work)
-5. **Expandable sections** — Patterns, questions to consider, analysis caveats
-6. **Export Options** — CSV, text, markdown
+## Chat Behavior
 
-**Key design:** Issues are linked to specific recommendations. Each recommendation addresses a particular issue, not generic "automate this step" advice.
+The current `ChatInterface` keeps a local message history in the browser component.
 
----
+### Initial assistant prompt
 
-### CONTINUING State
+On a fresh chat, the UI starts with a built-in assistant message that asks the user to:
 
-**Goal:** Handle follow-up questions and modifications.
+- describe the business process
+- include rough timing and dependencies
+- optionally upload a file
 
-**Supported interactions:**
-- "Why did you flag X as an issue?"
-- "What if we can't automate that step?"
-- "Re-analyze with a $5000 budget constraint"
-- "Start over with a different process"
+### Message model
 
-**Implementation:**
-- Detects "re-analyze", "try again", "what if" keywords
-- Parses constraint modifications (budget amounts, hiring restrictions)
-- Detects "start over", "reset", "new process" for conversation reset
+Messages in the current frontend are lightweight and local to the component.
 
----
+Each message stores:
+
+- `role`
+- `content`
+- optional error flag
+- optional collapsed summary
+
+This is simpler than the older, more elaborate message-schema drafts.
+
+### Collapsing older messages
+
+When the chat grows, older messages are collapsed into summaries so the active part of the conversation stays readable.
+
+### Status indicators
+
+The current chat status values are:
+
+- `idle`
+- `extracting`
+- `analyzing`
+- `needs_clarification`
+- `error`
+
+Extraction and analysis each cycle through human-readable progress text rather than showing only a spinner.
 
 ## File Upload Flow
 
-Files can be dropped into the chat area at any time.
+Files can be uploaded from the chat input area at any time.
 
-**Flow:**
-```
-User drops file -> Parse (Docling/pandas) -> LLM extraction -> Data card appears
-```
+Current accepted extensions in the frontend:
 
-**Supported formats:** PDF, Word, Excel, PowerPoint, HTML, images (PNG, JPG, TIFF, BMP)
+- `.csv`
+- `.xlsx`
+- `.xls`
+- `.pdf`
+- `.docx`
+- `.doc`
+- `.ppt`
+- `.pptx`
+- `.html`
+- `.htm`
+- `.jpg`
+- `.jpeg`
+- `.png`
+- `.bmp`
+- `.tiff`
 
-**Limits:** 10MB warning threshold, 50MB hard limit.
+Current client-side size rule:
 
-**Error handling:**
-```
-Agent: I couldn't read that file. Supported formats are PDF, Word, Excel,
-       PowerPoint, and images. You can also describe your process in text.
-```
+- reject files larger than 50 MB before upload
 
----
+Current backend size rule:
 
-## Session State Structure
+- reject files larger than 50 MB
 
-```python
-class ChatState(str, Enum):
-    """Conversation states."""
-    WELCOME = "welcome"
-    GATHERING = "gathering"
-    CONFIRMING = "confirming"
-    ANALYZING = "analyzing"
-    CLARIFYING = "clarifying"
-    RESULTS = "results"
-    CONTINUING = "continuing"
-```
+There is no separate 10 MB warning threshold in the shipped web UI.
 
-**Key session state fields:**
+## Settings and Conversation Context
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `chat_state` | ChatState | Current conversation state |
-| `messages` | list[ChatMessage] | Full conversation history |
-| `process_data` | ProcessData | Confirmed process data |
-| `constraints` | Constraints | User-defined constraints |
-| `business_profile` | BusinessProfile | Industry, company size, etc. |
-| `analysis_insight` | AnalysisInsight | LLM-based analysis results |
-| `confidence` | ConfidenceResult | Data completeness scoring |
-| `analysis_mode` | str | Selected analysis preset |
-| `analysis_pending` | bool | Triggers analysis on next render cycle |
-| `input_pending` | bool | Triggers input processing on next render cycle |
-| `thread_id` | str | LangGraph persistence thread ID |
-| `user_id` | str | UUID for user identification |
-| `clarification_context` | str | Accumulated clarification responses (plain text) |
-| `pending_clarifications` | ClarificationBundle | Structured questions waiting for user response |
-| `clarification_responses` | list[ClarificationResponse] | User answers to clarifying questions |
-| `reasoning_trace` | list[str] | Agent reasoning steps (shown in results expander) |
-| `recommendation_feedback` | dict | Up/down votes on recommendations (session-scoped) |
-| `draft_steps` | list[dict] | In-progress steps from step builder form |
+The current conversation flow is influenced by settings stored at the page level and passed into the chat component.
 
----
+The user can set:
 
-## Error Handling in Chat
+- LLM provider
+- analysis mode
+- max investigation cycles
+- industry
+- company size
+- regulatory environment
+- budget limit
+- timeline weeks
+- no layoffs
+- no new hires
 
-### Recoverable Errors
-Shown as agent messages with recovery options:
-```
-Agent: I had trouble parsing that Excel file - it looks like the headers
-       might be in an unexpected location.
+These values are sent with extraction and analysis requests and affect:
 
-       Can you try:
-       - Ensuring headers are in row 1
-       - Or describe the process in text instead
-```
+- extraction context
+- confidence scoring
+- recommendation constraints
+- investigation depth override
 
-### API Errors
-```
-Agent: I'm having trouble connecting to the analysis service.
-       This is usually temporary. Would you like me to try again?
+## Saved Sessions and Reset Behavior
 
-       [Retry] [Start Over]
-```
+Outside the chat itself, the conversation flow also interacts with two persistent UX paths.
 
-### Fatal Errors
-Shown with reset option:
-```
-System: Something went wrong that I can't recover from.
-        Your data has been preserved.
+### Library view
 
-        [Download Data] [Start Over]
-```
+The left rail switches between:
 
----
+- Analyze
+- Library
 
-## Design Decisions
+The library loads saved sessions from `GET /sessions/{user_id}`.
 
-1. **Messages survive page refresh** via session state + SqliteSaver checkpointer.
-2. **Progress messages** (not typing indicator) during analysis, for transparency about what's happening.
-3. **File size limits:** 10MB warning, 50MB hard limit. Rejects oversized files with helpful message.
-4. **Conversation length:** Not summarized in Phase 1. Context injection uses current table + last 3 substantive user messages to keep LLM calls efficient.
+### Reset my data
+
+The settings drawer includes a destructive reset flow that:
+
+- calls `DELETE /profile/{user_id}`
+- clears the browser-stored UUID
+- reloads the app
+
+This is different from "New analysis," which only clears the current page state and keeps the saved profile/history.
+
+## Current Backend Relationship
+
+The web conversation flow maps to backend endpoints like this:
+
+| UI action | Backend call |
+| --- | --- |
+| send text | `POST /extract` |
+| upload file | `POST /extract-file` |
+| run analysis | `POST /analyze` |
+| load profile | `GET /profile/{user_id}` |
+| save profile | `PUT /profile/{user_id}` |
+| load library | `GET /sessions/{user_id}` |
+| send feedback | `POST /feedback/{session_id}` |
+| export PDF | `POST /export/pdf` |
+
+The following backend capabilities exist but are not wired into the current web flow:
+
+- `POST /continue`
+- `GET /graph-schema/{thread_id}`
+- `GET /export/csv/{thread_id}`
+
+## Known Gaps
+
+These gaps are worth keeping visible because they affect how future contributors reason about the conversation model.
+
+### Follow-up conversation is UI-local, not fully checkpoint-driven
+
+The backend has a persisted conversation continuation path, but the current web UI does not use it.
+
+### Provider messaging needs to stay precise
+
+The UI offers `ollama`, but extraction is not fully local today. Any conversation-flow documentation or UX copy needs to stay aligned with that fact.
+
+### The current flow is strong for iterative refinement, not yet for rich conversational memory in the UI
+
+The app supports saved sessions and backend persistence, but the visible chat experience is still primarily centered on:
+
+- extract
+- review
+- analyze
+- refine
+
+rather than a fully threaded long-running assistant conversation.
+
+## Review Notes
+
+This document was rewritten because the previous version described several things that are no longer true in the current app, including:
+
+- a formal chat-state model that does not exist in the current frontend
+- older result layouts and button patterns
+- a follow-up flow built around `/continue`
+- a light-theme visual system that no longer matches the shipped UI
+- file-size rules and confirmation behaviors that were draft design notes rather than implementation
