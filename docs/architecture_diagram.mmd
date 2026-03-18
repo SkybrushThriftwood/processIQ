@@ -2,68 +2,43 @@
 title: ProcessIQ High-Level Architecture
 ---
 flowchart TB
-    classDef surface fill:#EAF2FF,stroke:#3563B7,stroke-width:2px,color:#111
-    classDef service fill:#EAF8EE,stroke:#2E8B57,stroke-width:2px,color:#111
-    classDef intelligence fill:#FFF4D6,stroke:#B8860B,stroke-width:2px,color:#111
+    classDef browser fill:#EAF2FF,stroke:#3563B7,stroke-width:2px,color:#111
+    classDef api fill:#EAF8EE,stroke:#2E8B57,stroke-width:2px,color:#111
+    classDef ai fill:#FFF4D6,stroke:#B8860B,stroke-width:2px,color:#111
     classDef storage fill:#F4EAFF,stroke:#7A3DB8,stroke-width:2px,color:#111
-    classDef result fill:#FFE9EA,stroke:#C23B3B,stroke-width:2px,color:#111
-    classDef note fill:#F7F7F7,stroke:#888,stroke-width:1px,color:#444,stroke-dasharray:4 4
 
-    USER["User"]:::surface
-
-    APP["Web App<br/>Next.js + React<br/>Chat, step editor, results, library"]:::surface
-
-    API["API Service<br/>FastAPI<br/>Validation, rate limiting, response shaping"]:::service
-
-    subgraph ENGINE["Analysis Engine"]
+    subgraph BROWSER["User & Browser"]
         direction TB
-        EXTRACT["Extract process data<br/>from text or uploaded files"]:::intelligence
-        GATE{"Enough context<br/>to analyze?"}:::intelligence
-        ANALYZE["Run analysis workflow<br/>metrics, recommendations, graph data"]:::intelligence
-        INVESTIGATE["Optional investigation step<br/>for deeper validation"]:::intelligence
-
-        EXTRACT --> GATE
-        GATE -- "No" --> ASK["Ask clarifying questions"]:::intelligence
-        ASK --> EXTRACT
-        GATE -- "Yes" --> ANALYZE
-        ANALYZE --> INVESTIGATE
+        USER["User"]:::browser
+        APP["Next.js + React<br/>Chat, step editor, results, library"]:::browser
     end
 
-    subgraph DATA["Memory and Storage"]
+    subgraph BACKEND["API & Orchestration"]
+        direction TB
+        API["FastAPI<br/>Validation, rate limiting, response shaping"]:::api
+        AGENT["LangGraph Agent<br/>Extraction -> Analysis -> Investigation<br/>See agent_flow.mmd for detail"]:::ai
+    end
+
+    subgraph STORAGE["Storage & Cache"]
         direction LR
-        SQLITE["SQLite<br/>profiles, sessions, feedback, checkpoints"]:::storage
-        CHROMA["ChromaDB<br/>similar past analyses"]:::storage
-        CACHE["Active session cache<br/>graph and CSV lookups"]:::storage
+        SQLITE["SQLite<br/>Profiles, sessions,<br/>feedback, checkpoints"]:::storage
+        CHROMA["ChromaDB<br/>Semantic retrieval<br/>of past analyses"]:::storage
+        CACHE["In-memory cache<br/>Active graph and<br/>CSV session data"]:::storage
     end
 
-    subgraph OUTPUTS["User-Facing Outputs"]
-        direction LR
-        INSIGHT["Analysis results<br/>issues, recommendations, scenarios"]:::result
-        GRAPH["Process graph<br/>React Flow schema from backend"]:::result
-        EXPORTS["Exports<br/>Markdown and plain text"]:::result
-    end
+    %% Primary request path - thick arrows
+    USER ==> APP
+    APP ==> API
+    API ==> AGENT
 
-    USER --> APP
-    APP --> API
-    API --> EXTRACT
-    EXTRACT --> ANALYZE
-
-    ANALYZE --> INSIGHT
-    ANALYZE --> GRAPH
-    INSIGHT --> EXPORTS
-
-    ANALYZE <--> SQLITE
-    ANALYZE <--> CHROMA
+    %% Persistence - normal weight
+    AGENT <--> SQLITE
+    AGENT <--> CHROMA
     API <--> CACHE
 
-    INSIGHT -. "user submits feedback" .-> API
-    API -. "re-analysis with feedback context" .-> ANALYZE
+    %% Feedback loop - muted
+    APP -. "feedback submission" .-> API
+    API -. "re-analysis with feedback context" .-> AGENT
 
-    APP -. "session reads via API" .-> SQLITE
-    API -. "active thread lookup" .-> CACHE
-
-    OLLAMA_NOTE["Note:<br/>Extraction is not fully local today,<br/>even when Ollama is selected in the UI."]:::note
-    CACHE_NOTE["Note:<br/>Graph and CSV lookup endpoints depend on the<br/>active in-memory cache, not full historical retrieval."]:::note
-
-    EXTRACT -.-> OLLAMA_NOTE
-    CACHE -.-> CACHE_NOTE
+    %% Session reads - muted
+    API -. "session and profile reads" .-> SQLITE
